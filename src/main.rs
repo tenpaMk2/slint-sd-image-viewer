@@ -1,8 +1,6 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
-
 slint::include_modules!();
 
 mod config;
@@ -20,10 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let app = AppWindow::new()?;
-    let navigation_state = Arc::new(Mutex::new(state::NavigationState::new()));
+    let app_state = state::AppState::new();
 
     // Setup all UI event handlers
-    ui::setup_handlers(&app, navigation_state);
+    ui::setup_handlers(&app, app_state);
 
     app.run()?;
 
