@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     let state = Arc::new(Mutex::new(ImageViewerState::default()));
 
-    ui.global::<Logic>().on_load_image({
+    ui.global::<Logic>().on_select_image({
         let ui_handle = ui.as_weak();
         let state = state.clone();
         move || {
