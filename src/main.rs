@@ -55,28 +55,31 @@ impl ImageViewerState {
     }
 }
 
-/// Helper function to spawn an async task with proper wrapping
-fn spawn_image_task<F>(future: F)
-where
-    F: std::future::Future<Output = ()> + 'static,
-{
-    let _ = slint::spawn_local(async_compat::Compat::new(future));
-}
+/// Helper function to load an image in a background thread and update UI
+fn load_and_display_image(ui: slint::Weak<AppWindow>, path: PathBuf, error_prefix: String) {
+    // rayonで別スレッドで画像を読み込む（全ての重い処理を含む）
+    rayon::spawn(move || {
+        let result = image_loader::load_image_blocking(&path);
 
-/// Helper function to load an image and update the UI
-async fn load_and_display_image(ui: slint::Weak<AppWindow>, path: PathBuf, error_prefix: &str) {
-    let ui = ui.unwrap();
-
-    match image_loader::load_image(&path).await {
-        Ok(image) => {
-            ui.set_dynamic_image(image);
-            ui.set_image_loaded(true);
-            ui.set_error_message("".into());
-        }
-        Err(e) => {
-            ui.set_error_message(format!("{}: {}", error_prefix, e).into());
-        }
-    }
+        // 読み込み完了後、invoke_from_event_loopでUIスレッドに戻して更新
+        // UIスレッドでは軽い処理のみ実行
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(ui) = ui.upgrade() {
+                match result {
+                    Ok((data, width, height)) => {
+                        // 軽い処理のみ：SharedPixelBufferの作成
+                        let image = image_loader::create_slint_image(data, width, height);
+                        ui.set_dynamic_image(image);
+                        ui.set_image_loaded(true);
+                        ui.set_error_message("".into());
+                    }
+                    Err(e) => {
+                        ui.set_error_message(format!("{}: {}", error_prefix, e).into());
+                    }
+                }
+            }
+        });
+    });
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -89,26 +92,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            spawn_image_task(async move {
-                let ui = ui_handle.clone();
-
+            let _ = slint::spawn_local(async move {
                 // Show file dialog
                 let file_handle = match AsyncFileDialog::new().pick_file().await {
                     Some(handle) => handle,
                     None => {
-                        ui.unwrap().set_error_message("No file selected".into());
+                        if let Some(ui) = ui_handle.upgrade() {
+                            ui.set_error_message("No file selected".into());
+                        }
                         return;
                     }
                 };
 
                 let path = file_handle.path().to_path_buf();
 
-                // Load image and update UI
-                load_and_display_image(ui.clone(), path.clone(), "Failed to load image").await;
+                // Load image and update UI (rayonで別スレッド実行)
+                load_and_display_image(
+                    ui_handle.clone(),
+                    path.clone(),
+                    "Failed to load image".to_string(),
+                );
 
-                // Update state with directory info
-                let mut state = state.lock().unwrap();
-                state.update_directory(path);
+                // Update state with directory info (rayonで別スレッド実行)
+                let state_clone = state.clone();
+                let path_clone = path.clone();
+                rayon::spawn(move || {
+                    let mut state = state_clone.lock().unwrap();
+                    state.update_directory(path_clone);
+                });
             });
         }
     });
@@ -117,18 +128,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ui_handle = ui.as_weak();
         let state = state.clone();
         move || {
-            let ui_handle = ui_handle.clone();
-            let state = state.clone();
-            spawn_image_task(async move {
-                let next_path = {
-                    let mut state = state.lock().unwrap();
-                    state.next_image()
-                };
+            let next_path = {
+                let mut state = state.lock().unwrap();
+                state.next_image()
+            };
 
-                if let Some(path) = next_path {
-                    load_and_display_image(ui_handle, path, "Failed to load next image").await;
-                }
-            });
+            if let Some(path) = next_path {
+                load_and_display_image(
+                    ui_handle.clone(),
+                    path,
+                    "Failed to load next image".to_string(),
+                );
+            }
         }
     });
 
@@ -136,18 +147,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ui_handle = ui.as_weak();
         let state = state.clone();
         move || {
-            let ui_handle = ui_handle.clone();
-            let state = state.clone();
-            spawn_image_task(async move {
-                let prev_path = {
-                    let mut state = state.lock().unwrap();
-                    state.prev_image()
-                };
+            let prev_path = {
+                let mut state = state.lock().unwrap();
+                state.prev_image()
+            };
 
-                if let Some(path) = prev_path {
-                    load_and_display_image(ui_handle, path, "Failed to load previous image").await;
-                }
-            });
+            if let Some(path) = prev_path {
+                load_and_display_image(
+                    ui_handle.clone(),
+                    path,
+                    "Failed to load previous image".to_string(),
+                );
+            }
         }
     });
 
