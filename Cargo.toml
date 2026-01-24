@@ -6,9 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-compat = "0.2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 rfd = "0.17.2"
 slint = { version = "1.14.1", features = ["image-default-formats"] }
+tokio = { version = "1", features = ["rt"] }
 
 [build-dependencies]
 slint-build = "1.14.1"
