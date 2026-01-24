@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async move {
+            let _ = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
 
                 // Show file dialog
@@ -94,7 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         ui.set_error_message(format!("Failed to load image: {}", e).into());
                     }
                 }
-            });
+            }));
         }
     });
 
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async move {
+            let _ = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
                 let next_path = {
                     let mut state = state.lock().unwrap();
@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                 }
-            });
+            }));
         }
     });
 
@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async move {
+            let _ = slint::spawn_local(async_compat::Compat::new(async move {
                 let ui = ui_handle.unwrap();
                 let prev_path = {
                     let mut state = state.lock().unwrap();
@@ -156,7 +156,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                 }
-            });
+            }));
         }
     });
 
