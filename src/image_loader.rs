@@ -1,13 +1,26 @@
 use crate::error::Result;
+use log::error;
 use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
 use std::path::Path;
 
 /// Load an image from a file path and return RGB8 data ready for Slint
 /// 別スレッドで実行する同期関数（重い処理を全て含む）
 pub fn load_image_blocking(path: &Path) -> Result<(Vec<u8>, u32, u32)> {
-    let img = image::ImageReader::open(path)?
-        .with_guessed_format()?
-        .decode()?;
+    let img = image::ImageReader::open(path)
+        .map_err(|e| {
+            error!("Failed to open image {:?}: {}", path, e);
+            e
+        })?
+        .with_guessed_format()
+        .map_err(|e| {
+            error!("Failed to guess image format for {:?}: {}", path, e);
+            e
+        })?
+        .decode()
+        .map_err(|e| {
+            error!("Failed to decode image {:?}: {}", path, e);
+            e
+        })?;
 
     // 重いRGB8変換も別スレッドで実行
     let rgb8 = img.to_rgb8();

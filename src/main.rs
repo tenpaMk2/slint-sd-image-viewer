@@ -13,6 +13,11 @@ mod state;
 mod ui;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(debug_assertions)]
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
     let app = AppWindow::new()?;
     let navigation_state = Arc::new(Mutex::new(state::NavigationState::new()));
 

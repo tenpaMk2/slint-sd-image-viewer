@@ -1,6 +1,7 @@
 //! Navigation state for managing image file lists and current position.
 
 use crate::file_utils;
+use log::{debug, warn};
 use std::path::PathBuf;
 
 /// Manages the current directory, list of image files, and current index.
@@ -23,6 +24,7 @@ impl NavigationState {
             self.current_index += 1;
             Some(self.image_files[self.current_index].clone())
         } else {
+            warn!("No next image available");
             None
         }
     }
@@ -33,6 +35,7 @@ impl NavigationState {
             self.current_index -= 1;
             Some(self.image_files[self.current_index].clone())
         } else {
+            warn!("No previous image available");
             None
         }
     }
@@ -40,6 +43,9 @@ impl NavigationState {
     /// Updates the directory context based on a selected file path.
     /// Scans the parent directory and sets the current index to the selected file.
     pub fn update_directory(&mut self, file_path: PathBuf) {
+        let start = std::time::Instant::now();
+        debug!("Starting directory update for: {:?}", file_path);
+
         if let Some(parent) = file_path.parent() {
             self.current_directory = Some(parent.to_path_buf());
 
@@ -54,5 +60,11 @@ impl NavigationState {
                     .unwrap_or(0);
             }
         }
+
+        let elapsed = start.elapsed();
+        debug!(
+            "Completed directory update for {:?} in {:?}",
+            file_path, elapsed
+        );
     }
 }

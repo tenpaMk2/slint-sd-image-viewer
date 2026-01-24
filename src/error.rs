@@ -9,8 +9,6 @@ pub enum AppError {
     ImageLoad(String),
     /// Error scanning directory for image files
     DirectoryScan(String),
-    /// Error with file dialog operations
-    FileDialog(String),
 }
 
 impl fmt::Display for AppError {
@@ -18,7 +16,6 @@ impl fmt::Display for AppError {
         match self {
             AppError::ImageLoad(msg) => write!(f, "画像読み込みエラー: {}", msg),
             AppError::DirectoryScan(msg) => write!(f, "ディレクトリスキャンエラー: {}", msg),
-            AppError::FileDialog(msg) => write!(f, "ファイルダイアログエラー: {}", msg),
         }
     }
 }

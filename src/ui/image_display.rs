@@ -4,6 +4,7 @@
 //! then `slint::invoke_from_event_loop` to update UI from the background thread.
 
 use crate::image_loader;
+use log::error;
 use slint::ComponentHandle;
 use std::path::PathBuf;
 
@@ -13,7 +14,11 @@ use std::path::PathBuf;
 /// 1. Spawns a rayon thread to decode the image (CPU-intensive)
 /// 2. Uses invoke_from_event_loop to return to the UI thread
 /// 3. Updates ViewState with the loaded image or error message
-pub fn load_and_display_image(ui: slint::Weak<crate::AppWindow>, path: PathBuf, error_prefix: String) {
+pub fn load_and_display_image(
+    ui: slint::Weak<crate::AppWindow>,
+    path: PathBuf,
+    error_prefix: String,
+) {
     // rayonで別スレッドで画像を読み込む（全ての重い処理を含む）
     rayon::spawn(move || {
         let result = image_loader::load_image_blocking(&path);
@@ -31,6 +36,7 @@ pub fn load_and_display_image(ui: slint::Weak<crate::AppWindow>, path: PathBuf, 
                         ui.global::<crate::ViewState>().set_error_message("".into());
                     }
                     Err(e) => {
+                        error!("{}: {}", error_prefix, e);
                         ui.global::<crate::ViewState>()
                             .set_error_message(format!("{}: {}", error_prefix, e).into());
                     }
