@@ -7,9 +7,10 @@ use crate::ui::image_display::load_and_display_image;
 use crate::{metadata, state::AppState};
 use log::warn;
 use rfd::AsyncFileDialog;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Timer, TimerMode};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 /// Checks if a write operation is already in progress for the specified file.
 fn is_write_in_progress(current_writing: &Arc<Mutex<Option<PathBuf>>>, path: &PathBuf) -> bool {
@@ -172,7 +173,11 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
+        let timer_ref = app_state.auto_reload_timer.clone();
         move || {
+            // Stop auto-reload on manual navigation
+            stop_auto_reload_internal(&ui_handle, &timer_ref);
+
             let next_path = {
                 let mut state = state.lock().unwrap();
                 state.next_image()
@@ -194,7 +199,11 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
+        let timer_ref = app_state.auto_reload_timer.clone();
         move || {
+            // Stop auto-reload on manual navigation
+            stop_auto_reload_internal(&ui_handle, &timer_ref);
+
             let prev_path = {
                 let mut state = state.lock().unwrap();
                 state.prev_image()
@@ -209,6 +218,107 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     cache.clone(),
                 );
             }
+        }
+    });
+}
+
+/// Internal helper to stop the auto-reload timer.
+fn stop_auto_reload_internal(
+    ui_handle: &slint::Weak<crate::AppWindow>,
+    timer_ref: &Arc<Mutex<Option<Timer>>>,
+) {
+    if let Ok(mut timer_lock) = timer_ref.lock() {
+        if let Some(timer) = timer_lock.take() {
+            timer.stop();
+            if let Some(ui) = ui_handle.upgrade() {
+                ui.global::<crate::ViewState>()
+                    .set_auto_reload_active(false);
+            }
+        }
+    }
+}
+
+/// Sets up the auto-reload handlers.
+fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
+    ui.global::<crate::Logic>().on_start_auto_reload({
+        let ui_handle = ui.as_weak();
+        let state = app_state.navigation.clone();
+        let cache = app_state.image_cache.clone();
+        let timer_ref = app_state.auto_reload_timer.clone();
+
+        move || {
+            // First, navigate to the last image immediately
+            let last_path = {
+                let mut nav_state = state.lock().unwrap();
+                nav_state.navigate_to_last_image()
+            };
+
+            if let Some(path) = last_path {
+                load_and_display_image(
+                    ui_handle.clone(),
+                    path,
+                    "Failed to load last image".to_string(),
+                    state.clone(),
+                    cache.clone(),
+                );
+            }
+
+            // Set up timer for periodic reload
+            let timer = Timer::default();
+            let ui_weak = ui_handle.clone();
+            let state_clone = state.clone();
+            let cache_clone = cache.clone();
+
+            timer.start(TimerMode::Repeated, Duration::from_secs(2), move || {
+                // Run rescan in background thread to avoid blocking UI
+                let ui_weak_clone = ui_weak.clone();
+                let state_for_thread = state_clone.clone();
+                let cache_for_thread = cache_clone.clone();
+
+                rayon::spawn(move || {
+                    // Rescan directory (blocking I/O)
+                    let _changed = {
+                        let mut nav_state = state_for_thread.lock().unwrap();
+                        nav_state.rescan_directory_for_current()
+                    };
+
+                    // Navigate to last image
+                    let last_path = {
+                        let mut nav_state = state_for_thread.lock().unwrap();
+                        nav_state.navigate_to_last_image()
+                    };
+
+                    // Return to UI thread to load image
+                    if let Some(path) = last_path {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            load_and_display_image(
+                                ui_weak_clone,
+                                path,
+                                "Auto-reload failed".to_string(),
+                                state_for_thread,
+                                cache_for_thread,
+                            );
+                        });
+                    }
+                });
+            });
+
+            if let Ok(mut timer_lock) = timer_ref.lock() {
+                *timer_lock = Some(timer);
+            }
+
+            if let Some(ui) = ui_handle.upgrade() {
+                ui.global::<crate::ViewState>().set_auto_reload_active(true);
+            }
+        }
+    });
+
+    ui.global::<crate::Logic>().on_stop_auto_reload({
+        let ui_handle = ui.as_weak();
+        let timer_ref = app_state.auto_reload_timer.clone();
+
+        move || {
+            stop_auto_reload_internal(&ui_handle, &timer_ref);
         }
     });
 }
@@ -243,5 +353,6 @@ fn setup_rating_handlers(ui: &crate::AppWindow, app_state: &AppState) {
 pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
     setup_file_selection_handler(ui, &app_state);
     setup_navigation_handlers(ui, &app_state);
+    setup_auto_reload_handlers(ui, &app_state);
     setup_rating_handlers(ui, &app_state);
 }

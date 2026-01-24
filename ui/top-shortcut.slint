@@ -18,7 +18,11 @@ export component TopShortcut inherits FocusScope {
             accept
         } else if (event.text == "l") {
             debug("`L` pressed");
-            Logic.start-auto-reload();
+            if (ViewState.auto-reload-active) {
+                Logic.stop-auto-reload();
+            } else {
+                Logic.start-auto-reload();
+            }
             accept
         } else if (event.text == "0") {
             debug("`0` pressed");

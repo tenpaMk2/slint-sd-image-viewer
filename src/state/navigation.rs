@@ -135,4 +135,44 @@ impl NavigationState {
             None
         }
     }
+
+    /// Navigates to the last image in the list.
+    pub fn navigate_to_last_image(&mut self) -> Option<PathBuf> {
+        if self.image_files.is_empty() {
+            warn!("No images available for navigation to last");
+            return None;
+        }
+
+        let last_index = self.image_files.len() - 1;
+        let path = self.image_files[last_index].clone();
+        self.current_file_path = Some(path.clone());
+        self.current_rating = None;
+        debug!("Navigated to last image: {:?}", path);
+        Some(path)
+    }
+
+    /// Rescans the current directory and returns true if the image list changed.
+    pub fn rescan_directory_for_current(&mut self) -> bool {
+        let Some(ref current_dir) = self.current_directory else {
+            warn!("No current directory to rescan");
+            return false;
+        };
+
+        let Ok(new_files) = file_utils::scan_directory(current_dir) else {
+            warn!("Failed to rescan directory: {:?}", current_dir);
+            return false;
+        };
+
+        let changed = new_files != self.image_files;
+        if changed {
+            debug!(
+                "Directory changed: {} -> {} files",
+                self.image_files.len(),
+                new_files.len()
+            );
+            self.image_files = new_files;
+        }
+
+        changed
+    }
 }
