@@ -16,26 +16,23 @@ export component InfoArea inherits ScrollView {
             title: @tr("Basic Info");
             content-padding: 1px;
 
-            Table { }
+            Table {
+                data: [
+                    { key: @tr("Filename"), value: "aaa-afewfajewiaofjew-fewafeawfewa-hoge.png" },
+                    { key: @tr("Size"), value: "1.2 MB" },
+                    { key: @tr("Resolution"), value: "1156 x 864" }
+                ];
+            }
         }
 
         GroupBox {
             title: @tr("XMP");
             content-padding: 1px;
 
-            VerticalLayout {
-                spacing: 4px;
-                HorizontalLayout {
-                    Text {
-                        text: "Rating: ";
-                        horizontal-alignment: left;
-                    }
-
-                    Text {
-                        text: ViewState.current-rating >= 0 ? ViewState.current-rating : "None";
-                        horizontal-alignment: left;
-                    }
-                }
+            Table {
+                data: [
+                    { key: "Rating", value: 0 <= ViewState.current-rating ? ViewState.current-rating : "None" }
+                ];
             }
         }
 
