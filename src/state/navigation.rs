@@ -11,12 +11,11 @@ enum Direction {
     Previous,
 }
 
-/// Manages the current directory, list of image files, and current index.
+/// Manages the current directory, list of image files, and current file path.
 #[derive(Default)]
 pub struct NavigationState {
     current_directory: Option<PathBuf>,
     image_files: Vec<PathBuf>,
-    current_index: usize,
     current_file_path: Option<PathBuf>,
     current_rating: Option<u8>,
 }
@@ -34,18 +33,21 @@ impl NavigationState {
             return None;
         }
 
+        let current_path = self.current_file_path.as_ref()?;
+        let current_index = self.find_file_index(current_path);
+
         let new_index = match direction {
             Direction::Next => {
-                if self.current_index + 1 < self.image_files.len() {
-                    self.current_index + 1
+                if current_index + 1 < self.image_files.len() {
+                    current_index + 1
                 } else {
                     warn!("No next image available");
                     return None;
                 }
             }
             Direction::Previous => {
-                if self.current_index > 0 {
-                    self.current_index - 1
+                if current_index > 0 {
+                    current_index - 1
                 } else {
                     warn!("No previous image available");
                     return None;
@@ -53,8 +55,7 @@ impl NavigationState {
             }
         };
 
-        self.current_index = new_index;
-        let path = self.image_files[self.current_index].clone();
+        let path = self.image_files[new_index].clone();
         self.current_file_path = Some(path.clone());
         self.current_rating = None;
         Some(path)
@@ -71,7 +72,7 @@ impl NavigationState {
     }
 
     /// Updates the directory context based on a selected file path.
-    /// Scans the parent directory and sets the current index to the selected file.
+    /// Scans the parent directory and sets the current file path to the selected file.
     pub fn update_directory(&mut self, file_path: PathBuf) {
         let start = std::time::Instant::now();
         debug!("Starting directory update for: {:?}", file_path);
@@ -81,7 +82,6 @@ impl NavigationState {
 
             if let Ok(files) = file_utils::scan_directory(parent) {
                 self.image_files = files;
-                self.current_index = self.find_file_index(&file_path);
                 self.current_file_path = Some(file_path.clone());
                 self.current_rating = None;
             }
@@ -112,19 +112,25 @@ impl NavigationState {
         self.current_rating = rating;
     }
 
-    /// Returns the path to the next image without changing the current index.
+    /// Returns the path to the next image without changing the current file path.
     pub fn peek_next_image(&self) -> Option<PathBuf> {
-        if self.current_index + 1 < self.image_files.len() {
-            Some(self.image_files[self.current_index + 1].clone())
+        let current_path = self.current_file_path.as_ref()?;
+        let current_index = self.find_file_index(current_path);
+
+        if current_index + 1 < self.image_files.len() {
+            Some(self.image_files[current_index + 1].clone())
         } else {
             None
         }
     }
 
-    /// Returns the path to the previous image without changing the current index.
+    /// Returns the path to the previous image without changing the current file path.
     pub fn peek_prev_image(&self) -> Option<PathBuf> {
-        if self.current_index > 0 {
-            Some(self.image_files[self.current_index - 1].clone())
+        let current_path = self.current_file_path.as_ref()?;
+        let current_index = self.find_file_index(current_path);
+
+        if current_index > 0 {
+            Some(self.image_files[current_index - 1].clone())
         } else {
             None
         }

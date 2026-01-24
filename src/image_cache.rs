@@ -43,11 +43,23 @@ impl ImageCache {
 
     /// Retrieves an image from the cache if it exists.
     pub fn get(&mut self, path: &PathBuf) -> Option<CachedImage> {
-        self.cache.get(path).cloned()
+        let result = self.cache.get(path).cloned();
+        if result.is_some() {
+            log::info!("Cache HIT: {}", path.display());
+        } else {
+            log::info!("Cache MISS: {}", path.display());
+        }
+        result
     }
 
     /// Stores an image in the cache.
     pub fn put(&mut self, path: PathBuf, cached_image: CachedImage) {
+        log::info!(
+            "Cache PUT: {} ({}x{})",
+            path.display(),
+            cached_image.width,
+            cached_image.height
+        );
         self.cache.put(path, cached_image);
     }
 
