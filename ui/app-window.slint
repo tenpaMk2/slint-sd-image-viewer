@@ -13,6 +13,7 @@ import { TopShortcut } from "top-shortcut.slint";
 import { ViewArea } from "view-area.slint";
 import { InfoArea } from "info-area.slint";
 export { Logic } from "logic.slint";
+export { ErrorState } from "error-state.slint";
 
 export component AppWindow inherits Window {
     property <length> initial-width: 1280px;
@@ -22,7 +23,6 @@ export component AppWindow inherits Window {
     in-out property <image> dynamic-image;
     in-out property <bool> image-loaded: false;
     in-out property <string> file-list;
-    in-out property <string> error-message;
     in-out property <length> view-width: initial-width * 0.7;
 
     // width: 760px;

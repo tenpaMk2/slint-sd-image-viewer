@@ -71,10 +71,11 @@ fn load_and_display_image(ui: slint::Weak<AppWindow>, path: PathBuf, error_prefi
                         let image = image_loader::create_slint_image(data, width, height);
                         ui.set_dynamic_image(image);
                         ui.set_image_loaded(true);
-                        ui.set_error_message("".into());
+                        ui.global::<ErrorState>().set_error_message("".into());
                     }
                     Err(e) => {
-                        ui.set_error_message(format!("{}: {}", error_prefix, e).into());
+                        ui.global::<ErrorState>()
+                            .set_error_message(format!("{}: {}", error_prefix, e).into());
                     }
                 }
             }
@@ -95,14 +96,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             let _ = slint::spawn_local(async move {
                 // Show file dialog
                 // AsyncFileDialogはメインスレッドで実行する必要があるのでrayon禁止。
-                let file_handle = match AsyncFileDialog::new().pick_file().await {
-                    Some(handle) => handle,
-                    None => {
-                        if let Some(ui) = ui_handle.upgrade() {
-                            ui.set_error_message("No file selected".into());
-                        }
-                        return;
+                let Some(file_handle) = AsyncFileDialog::new().pick_file().await else {
+                    if let Some(ui) = ui_handle.upgrade() {
+                        ui.global::<ErrorState>()
+                            .set_error_message("No file selected".into());
                     }
+                    return;
                 };
 
                 let path = file_handle.path().to_path_buf();
