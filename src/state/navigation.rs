@@ -111,4 +111,22 @@ impl NavigationState {
     pub fn set_current_rating(&mut self, rating: Option<u8>) {
         self.current_rating = rating;
     }
+
+    /// Returns the path to the next image without changing the current index.
+    pub fn peek_next_image(&self) -> Option<PathBuf> {
+        if self.current_index + 1 < self.image_files.len() {
+            Some(self.image_files[self.current_index + 1].clone())
+        } else {
+            None
+        }
+    }
+
+    /// Returns the path to the previous image without changing the current index.
+    pub fn peek_prev_image(&self) -> Option<PathBuf> {
+        if self.current_index > 0 {
+            Some(self.image_files[self.current_index - 1].clone())
+        } else {
+            None
+        }
+    }
 }

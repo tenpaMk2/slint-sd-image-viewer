@@ -40,13 +40,26 @@ fn update_ui_after_rating_success(
     ui: &crate::AppWindow,
     rating: u8,
     state: Arc<Mutex<crate::state::NavigationState>>,
+    cache: Arc<Mutex<crate::image_cache::ImageCache>>,
 ) {
+    let current_path = {
+        let nav_state = state.lock().ok();
+        nav_state.and_then(|s| s.get_current_file_path())
+    };
+
     if let Ok(mut nav_state) = state.lock() {
         nav_state.set_current_rating(Some(rating));
     }
     ui.global::<crate::ViewState>()
         .set_current_rating(rating as i32);
     ui.global::<crate::ViewState>().set_error_message("".into());
+
+    // Update cache if the image is cached
+    if let Some(path) = current_path {
+        if let Ok(mut cache) = cache.lock() {
+            cache.update_rating(&path, Some(rating));
+        }
+    }
 }
 
 /// Updates the UI after a failed rating write.
@@ -60,6 +73,7 @@ fn create_rating_handler(
     ui_handle: slint::Weak<crate::AppWindow>,
     state: Arc<Mutex<crate::state::NavigationState>>,
     current_writing: Arc<Mutex<Option<PathBuf>>>,
+    cache: Arc<Mutex<crate::image_cache::ImageCache>>,
     rating: u8,
 ) -> impl Fn() {
     move || {
@@ -89,6 +103,7 @@ fn create_rating_handler(
         let ui_handle_clone = ui_handle.clone();
         let state_clone = state.clone();
         let current_writing_clone = current_writing.clone();
+        let cache_clone = cache.clone();
 
         rayon::spawn(move || {
             let write_result = metadata::write_xmp_rating(&path, rating);
@@ -100,7 +115,9 @@ fn create_rating_handler(
                         .set_rating_in_progress(false);
 
                     match write_result {
-                        Ok(()) => update_ui_after_rating_success(&ui, rating, state_clone),
+                        Ok(()) => {
+                            update_ui_after_rating_success(&ui, rating, state_clone, cache_clone)
+                        }
                         Err(e) => update_ui_after_rating_error(&ui, e.to_string()),
                     }
                 }
@@ -114,9 +131,11 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
     ui.global::<crate::Logic>().on_select_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
+        let cache = app_state.image_cache.clone();
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
+            let cache = cache.clone();
             let _ = slint::spawn_local(async move {
                 let Some(file_handle) = AsyncFileDialog::new().pick_file().await else {
                     if let Some(ui) = ui_handle.upgrade() {
@@ -133,6 +152,7 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
                     path.clone(),
                     "Failed to load image".to_string(),
                     state.clone(),
+                    cache.clone(),
                 );
 
                 let state_clone = state.clone();
@@ -151,6 +171,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     ui.global::<crate::Logic>().on_next_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
+        let cache = app_state.image_cache.clone();
         move || {
             let next_path = {
                 let mut state = state.lock().unwrap();
@@ -163,6 +184,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     path,
                     "Failed to load next image".to_string(),
                     state.clone(),
+                    cache.clone(),
                 );
             }
         }
@@ -171,6 +193,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     ui.global::<crate::Logic>().on_prev_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
+        let cache = app_state.image_cache.clone();
         move || {
             let prev_path = {
                 let mut state = state.lock().unwrap();
@@ -183,6 +206,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     path,
                     "Failed to load previous image".to_string(),
                     state.clone(),
+                    cache.clone(),
                 );
             }
         }
@@ -196,6 +220,7 @@ fn setup_rating_handlers(ui: &crate::AppWindow, app_state: &AppState) {
             ui.as_weak(),
             app_state.navigation.clone(),
             app_state.current_writing_file.clone(),
+            app_state.image_cache.clone(),
             rating,
         );
 

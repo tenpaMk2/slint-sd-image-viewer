@@ -6,6 +6,7 @@ slint::include_modules!();
 mod config;
 mod error;
 mod file_utils;
+mod image_cache;
 mod image_loader;
 mod metadata;
 mod state;
