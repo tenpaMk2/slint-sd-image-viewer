@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod file_utils;
 mod image_loader;
+mod metadata;
 mod state;
 mod ui;
 

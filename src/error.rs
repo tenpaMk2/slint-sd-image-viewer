@@ -9,6 +9,10 @@ pub enum AppError {
     ImageLoad(String),
     /// Error scanning directory for image files
     DirectoryScan(String),
+    /// Error reading XMP metadata
+    XmpRead(String),
+    /// Error writing XMP metadata
+    XmpWrite(String),
 }
 
 impl fmt::Display for AppError {
@@ -16,6 +20,8 @@ impl fmt::Display for AppError {
         match self {
             AppError::ImageLoad(msg) => write!(f, "画像読み込みエラー: {}", msg),
             AppError::DirectoryScan(msg) => write!(f, "ディレクトリスキャンエラー: {}", msg),
+            AppError::XmpRead(msg) => write!(f, "XMP読み取りエラー: {}", msg),
+            AppError::XmpWrite(msg) => write!(f, "XMP書き込みエラー: {}", msg),
         }
     }
 }

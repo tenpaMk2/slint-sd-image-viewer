@@ -23,8 +23,19 @@ export component InfoArea inherits ScrollView {
             title: @tr("XMP");
             content-padding: 1px;
 
-            Text {
-                text: @tr("Todo");
+            VerticalLayout {
+                spacing: 4px;
+                HorizontalLayout {
+                    Text {
+                        text: "Rating: ";
+                        horizontal-alignment: left;
+                    }
+
+                    Text {
+                        text: ViewState.current-rating >= 0 ? ViewState.current-rating : "None";
+                        horizontal-alignment: left;
+                    }
+                }
             }
         }
 

@@ -1,4 +1,5 @@
-import {Logic} from "logic.slint";
+import { Logic } from "logic.slint";
+import { ViewState } from "view-state.slint";
 
 export component TopShortcut inherits FocusScope {
     key-pressed(event) => {
@@ -21,27 +22,39 @@ export component TopShortcut inherits FocusScope {
             accept
         } else if (event.text == "0") {
             debug("`0` pressed");
-            Logic.rate-0();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-0();
+            }
             accept
         } else if (event.text == "1") {
             debug("`1` pressed");
-            Logic.rate-1();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-1();
+            }
             accept
         } else if (event.text == "2") {
             debug("`2` pressed");
-            Logic.rate-2();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-2();
+            }
             accept
         } else if (event.text == "3") {
             debug("`3` pressed");
-            Logic.rate-3();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-3();
+            }
             accept
         } else if (event.text == "4") {
             debug("`4` pressed");
-            Logic.rate-4();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-4();
+            }
             accept
         } else if (event.text == "5") {
             debug("`5` pressed");
-            Logic.rate-5();
+            if (!ViewState.rating-in-progress) {
+                Logic.rate-5();
+            }
             accept
         } else {
             reject

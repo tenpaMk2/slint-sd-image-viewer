@@ -3,10 +3,11 @@
 //! Uses `rayon::spawn` for CPU-intensive image decoding operations,
 //! then `slint::invoke_from_event_loop` to update UI from the background thread.
 
-use crate::image_loader;
+use crate::{image_loader, metadata};
 use log::error;
 use slint::ComponentHandle;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /// Helper function to load an image in a background thread and update UI.
 ///
@@ -18,10 +19,14 @@ pub fn load_and_display_image(
     ui: slint::Weak<crate::AppWindow>,
     path: PathBuf,
     error_prefix: String,
+    state: Arc<Mutex<crate::state::NavigationState>>,
 ) {
     // rayonで別スレッドで画像を読み込む（全ての重い処理を含む）
     rayon::spawn(move || {
         let result = image_loader::load_image_blocking(&path);
+
+        // XMP Ratingも読み込む
+        let rating_result = metadata::read_xmp_rating(&path);
 
         // 読み込み完了後、invoke_from_event_loopでUIスレッドに戻して更新
         // UIスレッドでは軽い処理のみ実行
@@ -34,6 +39,28 @@ pub fn load_and_display_image(
                         ui.global::<crate::ViewState>().set_dynamic_image(image);
                         ui.global::<crate::ViewState>().set_image_loaded(true);
                         ui.global::<crate::ViewState>().set_error_message("".into());
+
+                        // Rating情報を更新
+                        match rating_result {
+                            Ok(rating_opt) => {
+                                let rating_i32 = rating_opt.map(|r| r as i32).unwrap_or(-1);
+                                ui.global::<crate::ViewState>()
+                                    .set_current_rating(rating_i32);
+
+                                // NavigationStateのratingも更新
+                                if let Ok(mut nav_state) = state.lock() {
+                                    nav_state.set_current_rating(rating_opt);
+                                }
+                            }
+                            Err(e) => {
+                                // XMP読み込みエラーを警告として表示（画像表示は継続）
+                                error!("XMP読み込み警告: {}", e);
+                                ui.global::<crate::ViewState>().set_current_rating(-1);
+                                if let Ok(mut nav_state) = state.lock() {
+                                    nav_state.set_current_rating(None);
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         error!("{}: {}", error_prefix, e);

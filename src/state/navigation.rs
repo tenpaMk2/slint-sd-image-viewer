@@ -10,6 +10,8 @@ pub struct NavigationState {
     current_directory: Option<PathBuf>,
     image_files: Vec<PathBuf>,
     current_index: usize,
+    current_file_path: Option<PathBuf>,
+    current_rating: Option<u8>,
 }
 
 impl NavigationState {
@@ -22,7 +24,10 @@ impl NavigationState {
     pub fn next_image(&mut self) -> Option<PathBuf> {
         if !self.image_files.is_empty() && self.current_index + 1 < self.image_files.len() {
             self.current_index += 1;
-            Some(self.image_files[self.current_index].clone())
+            let path = self.image_files[self.current_index].clone();
+            self.current_file_path = Some(path.clone());
+            self.current_rating = None; // Reset rating until loaded
+            Some(path)
         } else {
             warn!("No next image available");
             None
@@ -33,7 +38,10 @@ impl NavigationState {
     pub fn prev_image(&mut self) -> Option<PathBuf> {
         if !self.image_files.is_empty() && self.current_index > 0 {
             self.current_index -= 1;
-            Some(self.image_files[self.current_index].clone())
+            let path = self.image_files[self.current_index].clone();
+            self.current_file_path = Some(path.clone());
+            self.current_rating = None; // Reset rating until loaded
+            Some(path)
         } else {
             warn!("No previous image available");
             None
@@ -58,6 +66,9 @@ impl NavigationState {
                     .iter()
                     .position(|p| p == &file_path)
                     .unwrap_or(0);
+
+                self.current_file_path = Some(file_path.clone());
+                self.current_rating = None; // Reset rating until loaded
             }
         }
 
@@ -66,5 +77,15 @@ impl NavigationState {
             "Completed directory update for {:?} in {:?}",
             file_path, elapsed
         );
+    }
+
+    /// Returns the current file path.
+    pub fn get_current_file_path(&self) -> Option<PathBuf> {
+        self.current_file_path.clone()
+    }
+
+    /// Sets the current rating.
+    pub fn set_current_rating(&mut self, rating: Option<u8>) {
+        self.current_rating = rating;
     }
 }
