@@ -5,7 +5,8 @@
 
 use crate::{
     image_cache::{CachedImage, ImageCache},
-    image_loader, metadata,
+    image_loader,
+    metadata::{self, SdParameters, SdTag},
     state::NavigationState,
 };
 use log::error;
@@ -19,6 +20,7 @@ struct LoadedImageData {
     width: u32,
     height: u32,
     rating: Option<u8>,
+    sd_parameters: Option<SdParameters>,
 }
 
 /// Loads image and metadata from the specified path.
@@ -27,12 +29,14 @@ fn load_image_with_metadata(path: &PathBuf) -> Result<LoadedImageData, String> {
         .map_err(|e| format!("Failed to load image: {}", e))?;
 
     let rating = metadata::read_xmp_rating(path).ok().flatten();
+    let sd_parameters = metadata::read_sd_parameters(path).ok().flatten();
 
     Ok(LoadedImageData {
         data,
         width,
         height,
         rating,
+        sd_parameters,
     })
 }
 
@@ -53,6 +57,7 @@ fn update_ui_with_image(
                 image_data.width,
                 image_data.height,
                 image_data.rating,
+                image_data.sd_parameters.clone(),
             ),
         );
     }
@@ -60,7 +65,13 @@ fn update_ui_with_image(
     let image =
         image_loader::create_slint_image(image_data.data, image_data.width, image_data.height);
 
-    update_ui_state(ui, image, image_data.rating, &state);
+    update_ui_state(
+        ui,
+        image,
+        image_data.rating,
+        image_data.sd_parameters.as_ref(),
+        &state,
+    );
 
     // Trigger preload of adjacent images
     preload_adjacent_images(state, cache);
@@ -79,6 +90,7 @@ fn update_ui_state(
     ui: &crate::AppWindow,
     image: slint::Image,
     rating: Option<u8>,
+    sd_parameters: Option<&SdParameters>,
     state: &Arc<Mutex<NavigationState>>,
 ) {
     ui.global::<crate::ViewState>().set_dynamic_image(image);
@@ -89,9 +101,87 @@ fn update_ui_state(
     ui.global::<crate::ViewState>()
         .set_current_rating(rating_i32);
 
+    // Update SD parameters
+    if let Some(params) = sd_parameters {
+        // Format positive tags
+        let positive_prompt = format_tags(&params.positive_sd_tags);
+        ui.global::<crate::ViewState>()
+            .set_positive_prompt(positive_prompt.into());
+
+        // Format negative tags
+        let negative_prompt = format_tags(&params.negative_sd_tags);
+        ui.global::<crate::ViewState>()
+            .set_negative_prompt(negative_prompt.into());
+
+        // Format other parameters as key-value pairs
+        let sd_params = format_sd_parameters(params);
+        ui.global::<crate::ViewState>()
+            .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(sd_params)));
+    } else {
+        // Clear SD parameters
+        ui.global::<crate::ViewState>()
+            .set_positive_prompt("".into());
+        ui.global::<crate::ViewState>()
+            .set_negative_prompt("".into());
+        ui.global::<crate::ViewState>()
+            .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(vec![])));
+    }
+
     if let Ok(mut nav_state) = state.lock() {
         nav_state.set_current_rating(rating);
     }
+}
+
+/// Formats SD tags into a comma-separated string with weights.
+fn format_tags(tags: &[SdTag]) -> String {
+    tags.iter()
+        .map(|tag| {
+            if let Some(weight) = tag.weight {
+                format!("({}:{})", tag.name, weight)
+            } else {
+                tag.name.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Formats SD parameters into key-value pairs for the table.
+fn format_sd_parameters(params: &SdParameters) -> Vec<(slint::SharedString, slint::SharedString)> {
+    let mut result = Vec::new();
+
+    if let Some(ref steps) = params.steps {
+        result.push(("Steps".into(), steps.clone().into()));
+    }
+    if let Some(ref sampler) = params.sampler {
+        result.push(("Sampler".into(), sampler.clone().into()));
+    }
+    if let Some(ref schedule_type) = params.schedule_type {
+        result.push(("Schedule type".into(), schedule_type.clone().into()));
+    }
+    if let Some(ref cfg_scale) = params.cfg_scale {
+        result.push(("CFG scale".into(), cfg_scale.clone().into()));
+    }
+    if let Some(ref seed) = params.seed {
+        result.push(("Seed".into(), seed.clone().into()));
+    }
+    if let Some(ref size) = params.size {
+        result.push(("Size".into(), size.clone().into()));
+    }
+    if let Some(ref model) = params.model {
+        result.push(("Model".into(), model.clone().into()));
+    }
+    if let Some(ref denoising_strength) = params.denoising_strength {
+        result.push((
+            "Denoising strength".into(),
+            denoising_strength.clone().into(),
+        ));
+    }
+    if let Some(ref clip_skip) = params.clip_skip {
+        result.push(("Clip skip".into(), clip_skip.clone().into()));
+    }
+
+    result
 }
 
 /// Helper function to load an image in a background thread and update UI.
@@ -120,7 +210,13 @@ pub fn load_and_display_image(
                 cached_image.height,
             );
 
-            update_ui_state(&ui, image, cached_image.rating, &state);
+            update_ui_state(
+                &ui,
+                image,
+                cached_image.rating,
+                cached_image.sd_parameters.as_ref(),
+                &state,
+            );
 
             // Trigger preload even on cache hit
             preload_adjacent_images(state, cache);
@@ -177,6 +273,7 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
                                 image_data.width,
                                 image_data.height,
                                 image_data.rating,
+                                image_data.sd_parameters,
                             ),
                         );
                     }
@@ -206,6 +303,7 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
                                 image_data.width,
                                 image_data.height,
                                 image_data.rating,
+                                image_data.sd_parameters,
                             ),
                         );
                     }

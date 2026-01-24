@@ -3,6 +3,7 @@
 //! Caches decoded RGB8 image data with metadata using an LRU policy.
 //! This allows instant display of recently viewed images.
 
+use crate::metadata::SdParameters;
 use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -14,16 +15,24 @@ pub struct CachedImage {
     pub width: u32,
     pub height: u32,
     pub rating: Option<u8>,
+    pub sd_parameters: Option<SdParameters>,
 }
 
 impl CachedImage {
     /// Creates a CachedImage from raw image data.
-    pub fn new(data: Vec<u8>, width: u32, height: u32, rating: Option<u8>) -> Self {
+    pub fn new(
+        data: Vec<u8>,
+        width: u32,
+        height: u32,
+        rating: Option<u8>,
+        sd_parameters: Option<SdParameters>,
+    ) -> Self {
         Self {
             data,
             width,
             height,
             rating,
+            sd_parameters,
         }
     }
 }

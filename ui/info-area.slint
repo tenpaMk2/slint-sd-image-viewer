@@ -37,25 +37,44 @@ export component InfoArea inherits ScrollView {
         }
 
         GroupBox {
+            title: @tr("Positive Prompt");
+            content-padding: 1px;
+
+            TextEdit {
+                height: 14rem;
+                wrap: word-wrap;
+                read-only: true;
+                text: ViewState.positive-prompt;
+            }
+        }
+
+        GroupBox {
+            title: @tr("Negative Prompt");
+            content-padding: 1px;
+
+            TextEdit {
+                height: 2rem;
+                wrap: word-wrap;
+                read-only: true;
+                text: ViewState.negative-prompt;
+            }
+        }
+
+        GroupBox {
+            title: @tr("Generation Settings");
+            content-padding: 1px;
+
+            Table {
+                data: ViewState.sd-parameters;
+            }
+        }
+
+        GroupBox {
             title: @tr("Status🚧");
             content-padding: 1px;
 
             Table {
                 data: [{ key: "Auto-Reload", value: ViewState.auto-reload-active ? "Active" : "Inactive" }];
-            }
-        }
-
-        GroupBox {
-            title: @tr("Tags");
-            content-padding: 1px;
-
-            VerticalLayout {
-                TextEdit {
-                    height: 8rem;
-                    wrap: word-wrap;
-                    read-only: true;
-                    text: "1girl, solo, looking at viewer, brown hair, green eyes, blush, smile, indoors, hair ornament, hairclip";
-                }
             }
         }
 

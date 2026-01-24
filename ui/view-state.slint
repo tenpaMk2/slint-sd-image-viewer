@@ -5,4 +5,7 @@ export global ViewState {
     in-out property <bool> rating-in-progress: false;
     in-out property <int> current-rating: -1;
     in-out property <bool> auto-reload-active: false;
+    in-out property <string> positive-prompt: "";
+    in-out property <string> negative-prompt: "";
+    in-out property <[{key: string, value: string}]> sd-parameters: [];
 }

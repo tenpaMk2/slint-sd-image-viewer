@@ -13,6 +13,8 @@ pub enum AppError {
     XmpRead(String),
     /// Error writing XMP metadata
     XmpWrite(String),
+    /// Error reading metadata (including SD parameters)
+    MetadataRead(String),
 }
 
 impl fmt::Display for AppError {
@@ -22,6 +24,7 @@ impl fmt::Display for AppError {
             AppError::DirectoryScan(msg) => write!(f, "ディレクトリスキャンエラー: {}", msg),
             AppError::XmpRead(msg) => write!(f, "XMP読み取りエラー: {}", msg),
             AppError::XmpWrite(msg) => write!(f, "XMP書き込みエラー: {}", msg),
+            AppError::MetadataRead(msg) => write!(f, "メタデータ読み取りエラー: {}", msg),
         }
     }
 }
