@@ -94,6 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let state = state.clone();
             let _ = slint::spawn_local(async move {
                 // Show file dialog
+                // AsyncFileDialogはメインスレッドで実行する必要があるのでrayon禁止。
                 let file_handle = match AsyncFileDialog::new().pick_file().await {
                     Some(handle) => handle,
                     None => {
