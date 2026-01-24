@@ -1,10 +1,10 @@
-use std::error::Error;
+use crate::config::SUPPORTED_IMAGE_EXTENSIONS;
+use crate::error::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn scan_directory(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+pub fn scan_directory(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut image_files = Vec::new();
-    let valid_extensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp"];
 
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -13,7 +13,7 @@ pub fn scan_directory(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if let Some(ext_str) = ext.to_str() {
-                    if valid_extensions.contains(&ext_str.to_lowercase().as_str()) {
+                    if SUPPORTED_IMAGE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str()) {
                         image_files.push(path);
                     }
                 }

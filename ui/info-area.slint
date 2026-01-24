@@ -5,7 +5,7 @@ import {
     TextEdit,
 } from "std-widgets.slint";
 import { Table } from "table.slint";
-import { ErrorState } from "error-state.slint";
+import { ViewState } from "view-state.slint";
 
 export component InfoArea inherits ScrollView {
     min-width: 200px;
@@ -50,7 +50,7 @@ export component InfoArea inherits ScrollView {
                 height: 4rem;
                 wrap: word-wrap;
                 read-only: true;
-                text: ErrorState.error-message;
+                text: ViewState.error-message;
             }
         }
     }

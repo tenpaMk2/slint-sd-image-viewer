@@ -4,10 +4,10 @@ import {
     ScrollView,
 } from "std-widgets.slint";
 import { Logic } from "logic.slint";
+import { ViewState } from "view-state.slint";
 
 export component ViewArea inherits VerticalLayout {
-    in property <image> dynamic-image;
-    in property <bool> image-loaded;
+    property <bool> image-loaded: ViewState.image-loaded;
 
     alignment: center;
 
@@ -35,7 +35,7 @@ export component ViewArea inherits VerticalLayout {
 
         image := Image {
             image-fit: contain;
-            source: dynamic-image;
+            source: ViewState.dynamic-image;
         }
     }
 

@@ -13,15 +13,12 @@ import { TopShortcut } from "top-shortcut.slint";
 import { ViewArea } from "view-area.slint";
 import { InfoArea } from "info-area.slint";
 export { Logic } from "logic.slint";
-export { ErrorState } from "error-state.slint";
+export { ViewState } from "view-state.slint";
 
 export component AppWindow inherits Window {
     property <length> initial-width: 1280px;
     property <length> initial-height: 720px;
 
-    // in-out property <image> dynamic-image: @image-url("latifa.png");
-    in-out property <image> dynamic-image;
-    in-out property <bool> image-loaded: false;
     in-out property <string> file-list;
     in-out property <length> view-width: initial-width * 0.7;
 
@@ -55,8 +52,6 @@ export component AppWindow inherits Window {
 
     HorizontalLayout {
         ViewArea {
-            dynamic-image: dynamic-image;
-            image-loaded: image-loaded;
             width: view-width;
         }
 
