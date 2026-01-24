@@ -55,6 +55,30 @@ impl ImageViewerState {
     }
 }
 
+/// Helper function to spawn an async task with proper wrapping
+fn spawn_image_task<F>(future: F)
+where
+    F: std::future::Future<Output = ()> + 'static,
+{
+    let _ = slint::spawn_local(async_compat::Compat::new(future));
+}
+
+/// Helper function to load an image and update the UI
+async fn load_and_display_image(ui: slint::Weak<AppWindow>, path: PathBuf, error_prefix: &str) {
+    let ui = ui.unwrap();
+
+    match image_loader::load_image(&path).await {
+        Ok(image) => {
+            ui.set_dynamic_image(image);
+            ui.set_image_loaded(true);
+            ui.set_error_message("".into());
+        }
+        Err(e) => {
+            ui.set_error_message(format!("{}: {}", error_prefix, e).into());
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     let state = Arc::new(Mutex::new(ImageViewerState::default()));
@@ -65,36 +89,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async_compat::Compat::new(async move {
-                let ui = ui_handle.unwrap();
+            spawn_image_task(async move {
+                let ui = ui_handle.clone();
 
                 // Show file dialog
                 let file_handle = match AsyncFileDialog::new().pick_file().await {
                     Some(handle) => handle,
                     None => {
-                        ui.set_error_message("No file selected".into());
+                        ui.unwrap().set_error_message("No file selected".into());
                         return;
                     }
                 };
 
                 let path = file_handle.path().to_path_buf();
 
-                // Load image
-                match image_loader::load_image(&path).await {
-                    Ok(image) => {
-                        ui.set_dynamic_image(image);
-                        ui.set_image_loaded(true);
-                        ui.set_error_message("".into());
+                // Load image and update UI
+                load_and_display_image(ui.clone(), path.clone(), "Failed to load image").await;
 
-                        // Update state with directory info
-                        let mut state = state.lock().unwrap();
-                        state.update_directory(path.into());
-                    }
-                    Err(e) => {
-                        ui.set_error_message(format!("Failed to load image: {}", e).into());
-                    }
-                }
-            }));
+                // Update state with directory info
+                let mut state = state.lock().unwrap();
+                state.update_directory(path);
+            });
         }
     });
 
@@ -104,28 +119,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async_compat::Compat::new(async move {
-                let ui = ui_handle.unwrap();
+            spawn_image_task(async move {
                 let next_path = {
                     let mut state = state.lock().unwrap();
                     state.next_image()
                 };
 
                 if let Some(path) = next_path {
-                    match image_loader::load_image(&path).await {
-                        Ok(image) => {
-                            ui.set_dynamic_image(image);
-                            ui.set_image_loaded(true);
-                            ui.set_error_message("".into());
-                        }
-                        Err(e) => {
-                            ui.set_error_message(
-                                format!("Failed to load next image: {}", e).into(),
-                            );
-                        }
-                    }
+                    load_and_display_image(ui_handle, path, "Failed to load next image").await;
                 }
-            }));
+            });
         }
     });
 
@@ -135,28 +138,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
-            let _ = slint::spawn_local(async_compat::Compat::new(async move {
-                let ui = ui_handle.unwrap();
+            spawn_image_task(async move {
                 let prev_path = {
                     let mut state = state.lock().unwrap();
                     state.prev_image()
                 };
 
                 if let Some(path) = prev_path {
-                    match image_loader::load_image(&path).await {
-                        Ok(image) => {
-                            ui.set_dynamic_image(image);
-                            ui.set_image_loaded(true);
-                            ui.set_error_message("".into());
-                        }
-                        Err(e) => {
-                            ui.set_error_message(
-                                format!("Failed to load previous image: {}", e).into(),
-                            );
-                        }
-                    }
+                    load_and_display_image(ui_handle, path, "Failed to load previous image").await;
                 }
-            }));
+            });
         }
     });
 
