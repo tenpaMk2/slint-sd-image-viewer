@@ -1,0 +1,44 @@
+import {
+    VerticalBox,
+    ScrollView,
+    GroupBox,
+    TextEdit,
+} from "std-widgets.slint";
+import { Table } from "table.slint";
+
+export component InfoArea inherits ScrollView {
+    min-width: 200px;
+    VerticalBox {
+        alignment: start;
+
+        GroupBox {
+            title: @tr("Basic Info");
+            content-padding: 1px;
+
+            Table { }
+        }
+
+        GroupBox {
+            title: @tr("XMP");
+            content-padding: 1px;
+
+            Text {
+                text: @tr("Todo");
+            }
+        }
+
+        GroupBox {
+            title: @tr("Tags");
+            content-padding: 1px;
+
+            VerticalLayout {
+                TextEdit {
+                    height: 8rem;
+                    wrap: word-wrap;
+                    read-only: true;
+                    text: "1girl, solo, looking at viewer, brown hair, green eyes, blush, smile, indoors, hair ornament, hairclip";
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,71 @@
+import {
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    AboutSlint,
+    TabWidget,
+    StyleMetrics,
+    Palette,
+    LineEdit,
+} from "std-widgets.slint";
+import { Slider } from "slider.slint";
+import { TopShortcut } from "top-shortcut.slint";
+import { ViewArea } from "view-area.slint";
+import { InfoArea } from "info-area.slint";
+export { Logic } from "logic.slint";
+
+export component AppWindow inherits Window {
+    property <length> initial-width: 1280px;
+    property <length> initial-height: 720px;
+
+    // in-out property <image> dynamic-image: @image-url("latifa.png");
+    in-out property <image> dynamic-image;
+    in-out property <bool> image-loaded: false;
+    in-out property <string> file-list;
+    in-out property <string> error-message;
+    in-out property <length> view-width: initial-width * 0.7;
+
+    // width: 760px;
+    // preferred-width: 100%;
+    preferred-width: initial-width;
+    preferred-height: initial-height;
+
+    default-font-size: 16px;
+
+    TopShortcut { }
+
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "Open image";
+                activated => {
+                    debug("Open image menu activated");
+                }
+            }
+
+            MenuItem {
+                title: "Open directory";
+                activated => {
+                    debug("Open directory menu activated");
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        ViewArea {
+            dynamic-image: dynamic-image;
+            image-loaded: image-loaded;
+            width: view-width;
+        }
+
+        slider := Slider {
+            moved(x) => {
+                view-width += x - slider.width / 2;
+            }
+        }
+
+        InfoArea { }
+    }
+}

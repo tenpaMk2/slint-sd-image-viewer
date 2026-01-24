@@ -1,0 +1,50 @@
+import {Logic} from "logic.slint";
+
+export component TopShortcut inherits FocusScope {
+    key-pressed(event) => {
+        debug(event.text, event.modifiers);
+        if (event.text == "c" && event.modifiers.control) {
+            debug("`Ctrl+C` pressed");
+            Logic.copy-image();
+            accept
+        } else if (event.text == Key.LeftArrow) {
+            debug("`←` pressed");
+            Logic.prev-image();
+            accept
+        } else if (event.text == Key.RightArrow) {
+            debug("`→` pressed");
+            Logic.next-image();
+            accept
+        } else if (event.text == "l") {
+            debug("`L` pressed");
+            Logic.start-auto-reload();
+            accept
+        } else if (event.text == "0") {
+            debug("`0` pressed");
+            Logic.rate-0();
+            accept
+        } else if (event.text == "1") {
+            debug("`1` pressed");
+            Logic.rate-1();
+            accept
+        } else if (event.text == "2") {
+            debug("`2` pressed");
+            Logic.rate-2();
+            accept
+        } else if (event.text == "3") {
+            debug("`3` pressed");
+            Logic.rate-3();
+            accept
+        } else if (event.text == "4") {
+            debug("`4` pressed");
+            Logic.rate-4();
+            accept
+        } else if (event.text == "5") {
+            debug("`5` pressed");
+            Logic.rate-5();
+            accept
+        } else {
+            reject
+        }
+    }
+}

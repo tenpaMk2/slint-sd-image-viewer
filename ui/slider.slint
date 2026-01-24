@@ -1,0 +1,18 @@
+import {
+    Palette,
+} from "std-widgets.slint";
+
+export component Slider inherits Rectangle {
+    out property <length> slider-x: slider.x;
+    callback moved(length);
+
+    background: Palette.control-background;
+    width: 6px;
+
+    slider := TouchArea {
+        mouse-cursor: ew-resize;
+        moved => {
+            root.moved(slider.mouse-x);
+        }
+    }
+}

@@ -1,0 +1,43 @@
+component TableRow inherits Rectangle {
+    in property <string> key;
+    in property <string> value;
+    in property <int> index;
+
+    property <length> rec-padding: 0.2rem;
+    background: mod(index,2) == 0 ? #222 : #333;
+
+    HorizontalLayout {
+        padding: rec-padding;
+        alignment: space-between;
+
+        VerticalLayout {
+            Text {
+                horizontal-alignment: left;
+                overflow: elide;
+                text: key + ":";
+            }
+        }
+
+        VerticalLayout {
+            Text {
+                horizontal-alignment: right;
+                wrap: char-wrap;
+                text: value;
+            }
+        }
+    }
+}
+
+export component Table inherits VerticalLayout {
+    width: 100%;
+
+    for r[index] in [
+        { key: @tr("Filename"), value: "aaa-afewfajewiaofjew-fewafeawfewa-hoge.png" },
+        { key: @tr("Size"), value: "1.2 MB" },
+        { key: @tr("Resolution"), value: "1156 x 864" }
+    ]: TableRow {
+        key: r.key;
+        value: r.value;
+        index: index;
+    }
+}

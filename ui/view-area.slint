@@ -1,0 +1,70 @@
+import {
+    Palette,
+    Button,
+    ScrollView,
+} from "std-widgets.slint";
+import { Logic } from "logic.slint";
+
+export component ViewArea inherits VerticalLayout {
+    in property <image> dynamic-image;
+    in property <bool> image-loaded;
+
+    alignment: center;
+
+    Rectangle {
+        background: Palette.alternate-background;
+        clip: true;
+
+        ContextMenuArea {
+            Menu {
+                MenuItem {
+                    title: @tr("Copy");
+                    activated => {
+                        debug("Copy");
+                    }
+                }
+
+                MenuItem {
+                    title: @tr("Reset Zoom");
+                    activated => {
+                        debug("Reset Zoom");
+                    }
+                }
+            }
+        }
+
+        image := Image {
+            image-fit: contain;
+            source: dynamic-image;
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        open-button := Button {
+            text: "Open image";
+            clicked => {
+                Logic.load-image();
+            }
+        }
+    }
+
+    states [
+        image-active when image-loaded: {
+            image.visible: true;
+            image.width: root.width;
+            image.height: root.height;
+            open-button.visible: false;
+            open-button.width: 0;
+            open-button.height: 0;
+        }
+        image-inactive when !image-loaded: {
+            image.visible: false;
+            image.width: 0px;
+            image.height: 0px;
+            open-button.visible: true;
+            open-button.width: 20rem;
+            open-button.height: 4rem;
+        }
+    ]
+}
