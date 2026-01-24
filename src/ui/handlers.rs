@@ -8,14 +8,109 @@ use crate::{metadata, state::AppState};
 use log::warn;
 use rfd::AsyncFileDialog;
 use slint::ComponentHandle;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
-/// Sets up all UI event handlers for the application.
-///
-/// Takes the UI handle and shared application state, then registers
-/// callbacks for image selection, navigation, and other user actions.
-pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
-    // Image selection handler
-    // Uses slint::spawn_local because AsyncFileDialog must run on the main thread
+/// Checks if a write operation is already in progress for the specified file.
+fn is_write_in_progress(current_writing: &Arc<Mutex<Option<PathBuf>>>, path: &PathBuf) -> bool {
+    let writing = current_writing.lock().unwrap();
+    if let Some(ref writing_path) = *writing {
+        if writing_path == path {
+            warn!("XMP write already in progress for: {:?}", path);
+            return true;
+        }
+    }
+    false
+}
+
+/// Marks a file as being written.
+fn mark_file_as_writing(current_writing: &Arc<Mutex<Option<PathBuf>>>, path: PathBuf) {
+    let mut writing = current_writing.lock().unwrap();
+    *writing = Some(path);
+}
+
+/// Clears the writing lock for a file.
+fn clear_writing_lock(current_writing: &Arc<Mutex<Option<PathBuf>>>) {
+    let mut writing = current_writing.lock().unwrap();
+    *writing = None;
+}
+
+/// Updates the UI after a successful rating write.
+fn update_ui_after_rating_success(
+    ui: &crate::AppWindow,
+    rating: u8,
+    state: Arc<Mutex<crate::state::NavigationState>>,
+) {
+    if let Ok(mut nav_state) = state.lock() {
+        nav_state.set_current_rating(Some(rating));
+    }
+    ui.global::<crate::ViewState>()
+        .set_current_rating(rating as i32);
+    ui.global::<crate::ViewState>().set_error_message("".into());
+}
+
+/// Updates the UI after a failed rating write.
+fn update_ui_after_rating_error(ui: &crate::AppWindow, error: String) {
+    ui.global::<crate::ViewState>()
+        .set_error_message(error.into());
+}
+
+/// Creates a rating handler closure for the specified rating value.
+fn create_rating_handler(
+    ui_handle: slint::Weak<crate::AppWindow>,
+    state: Arc<Mutex<crate::state::NavigationState>>,
+    current_writing: Arc<Mutex<Option<PathBuf>>>,
+    rating: u8,
+) -> impl Fn() {
+    move || {
+        let current_path = {
+            let nav_state = state.lock().unwrap();
+            nav_state.get_current_file_path()
+        };
+
+        let Some(path) = current_path else {
+            if let Some(ui) = ui_handle.upgrade() {
+                ui.global::<crate::ViewState>()
+                    .set_error_message("No image file selected".into());
+            }
+            return;
+        };
+
+        if is_write_in_progress(&current_writing, &path) {
+            return;
+        }
+
+        mark_file_as_writing(&current_writing, path.clone());
+
+        if let Some(ui) = ui_handle.upgrade() {
+            ui.global::<crate::ViewState>().set_rating_in_progress(true);
+        }
+
+        let ui_handle_clone = ui_handle.clone();
+        let state_clone = state.clone();
+        let current_writing_clone = current_writing.clone();
+
+        rayon::spawn(move || {
+            let write_result = metadata::write_xmp_rating(&path, rating);
+            clear_writing_lock(&current_writing_clone);
+
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(ui) = ui_handle_clone.upgrade() {
+                    ui.global::<crate::ViewState>()
+                        .set_rating_in_progress(false);
+
+                    match write_result {
+                        Ok(()) => update_ui_after_rating_success(&ui, rating, state_clone),
+                        Err(e) => update_ui_after_rating_error(&ui, e.to_string()),
+                    }
+                }
+            });
+        });
+    }
+}
+
+/// Sets up the file selection handler.
+fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
     ui.global::<crate::Logic>().on_select_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
@@ -23,8 +118,6 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
             let _ = slint::spawn_local(async move {
-                // Show file dialog
-                // AsyncFileDialogはメインスレッドで実行する必要があるのでrayon禁止。
                 let Some(file_handle) = AsyncFileDialog::new().pick_file().await else {
                     if let Some(ui) = ui_handle.upgrade() {
                         ui.global::<crate::ViewState>()
@@ -35,7 +128,6 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
 
                 let path = file_handle.path().to_path_buf();
 
-                // Load image and update UI (rayonで別スレッド実行)
                 load_and_display_image(
                     ui_handle.clone(),
                     path.clone(),
@@ -43,7 +135,6 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
                     state.clone(),
                 );
 
-                // Update state with directory info (rayonで別スレッド実行)
                 let state_clone = state.clone();
                 let path_clone = path.clone();
                 rayon::spawn(move || {
@@ -53,8 +144,10 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
             });
         }
     });
+}
 
-    // Next image handler
+/// Sets up the navigation handlers (next and previous image).
+fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     ui.global::<crate::Logic>().on_next_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
@@ -75,7 +168,6 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
         }
     });
 
-    // Previous image handler
     ui.global::<crate::Logic>().on_prev_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
@@ -95,99 +187,36 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
             }
         }
     });
+}
 
-    // Rating handlers (rate-0 through rate-5)
-    macro_rules! setup_rating_handler {
-        ($rating:expr) => {{
-            let ui_handle = ui.as_weak();
-            let state = app_state.navigation.clone();
-            let current_writing = app_state.current_writing_file.clone();
-            move || {
-                // Get current file path
-                let current_path = {
-                    let nav_state = state.lock().unwrap();
-                    nav_state.get_current_file_path()
-                };
+/// Sets up the rating handlers (rate-0 through rate-5).
+fn setup_rating_handlers(ui: &crate::AppWindow, app_state: &AppState) {
+    for rating in 0..=5 {
+        let handler = create_rating_handler(
+            ui.as_weak(),
+            app_state.navigation.clone(),
+            app_state.current_writing_file.clone(),
+            rating,
+        );
 
-                let Some(path) = current_path else {
-                    if let Some(ui) = ui_handle.upgrade() {
-                        ui.global::<crate::ViewState>()
-                            .set_error_message("No image file selected".into());
-                    }
-                    return;
-                };
-
-                // Check if another write operation is in progress for this file
-                {
-                    let mut writing = current_writing.lock().unwrap();
-                    if let Some(ref writing_path) = *writing {
-                        if writing_path == &path {
-                            warn!("XMP write already in progress for: {:?}", path);
-                            return;
-                        }
-                    }
-                    // Mark this file as being written
-                    *writing = Some(path.clone());
-                }
-
-                // Immediately disable rating UI
-                if let Some(ui) = ui_handle.upgrade() {
-                    ui.global::<crate::ViewState>().set_rating_in_progress(true);
-                }
-
-                let ui_handle_clone = ui_handle.clone();
-                let state_clone = state.clone();
-                let current_writing_clone = current_writing.clone();
-
-                rayon::spawn(move || {
-                    // Write XMP rating
-                    let write_result = metadata::write_xmp_rating(&path, $rating);
-
-                    // Clear the writing lock
-                    {
-                        let mut writing = current_writing_clone.lock().unwrap();
-                        *writing = None;
-                    }
-
-                    // Update UI and state
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_handle_clone.upgrade() {
-                            ui.global::<crate::ViewState>()
-                                .set_rating_in_progress(false);
-
-                            match write_result {
-                                Ok(()) => {
-                                    // Update rating in state and UI atomically
-                                    if let Ok(mut nav_state) = state_clone.lock() {
-                                        nav_state.set_current_rating(Some($rating));
-                                    }
-                                    ui.global::<crate::ViewState>()
-                                        .set_current_rating($rating as i32);
-                                    ui.global::<crate::ViewState>().set_error_message("".into());
-                                }
-                                Err(e) => {
-                                    // Show error message
-                                    ui.global::<crate::ViewState>()
-                                        .set_error_message(e.to_string().into());
-                                }
-                            }
-                        }
-                    });
-                });
-            }
-        }};
+        match rating {
+            0 => ui.global::<crate::Logic>().on_rate_0(handler),
+            1 => ui.global::<crate::Logic>().on_rate_1(handler),
+            2 => ui.global::<crate::Logic>().on_rate_2(handler),
+            3 => ui.global::<crate::Logic>().on_rate_3(handler),
+            4 => ui.global::<crate::Logic>().on_rate_4(handler),
+            5 => ui.global::<crate::Logic>().on_rate_5(handler),
+            _ => unreachable!(),
+        }
     }
+}
 
-    ui.global::<crate::Logic>()
-        .on_rate_0(setup_rating_handler!(0));
-    ui.global::<crate::Logic>()
-        .on_rate_1(setup_rating_handler!(1));
-    ui.global::<crate::Logic>()
-        .on_rate_2(setup_rating_handler!(2));
-    ui.global::<crate::Logic>()
-        .on_rate_3(setup_rating_handler!(3));
-    ui.global::<crate::Logic>()
-        .on_rate_4(setup_rating_handler!(4));
-    ui.global::<crate::Logic>()
-        .on_rate_5(setup_rating_handler!(5));
+/// Sets up all UI event handlers for the application.
+///
+/// Takes the UI handle and shared application state, then registers
+/// callbacks for image selection, navigation, and other user actions.
+pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
+    setup_file_selection_handler(ui, &app_state);
+    setup_navigation_handlers(ui, &app_state);
+    setup_rating_handlers(ui, &app_state);
 }

@@ -4,6 +4,13 @@ use crate::file_utils;
 use log::{debug, warn};
 use std::path::PathBuf;
 
+/// Direction for navigation through images.
+#[derive(Debug, Clone, Copy)]
+enum Direction {
+    Next,
+    Previous,
+}
+
 /// Manages the current directory, list of image files, and current index.
 #[derive(Default)]
 pub struct NavigationState {
@@ -20,32 +27,47 @@ impl NavigationState {
         Self::default()
     }
 
+    /// Navigates to an image in the specified direction.
+    fn navigate_to(&mut self, direction: Direction) -> Option<PathBuf> {
+        if self.image_files.is_empty() {
+            warn!("No images available for navigation");
+            return None;
+        }
+
+        let new_index = match direction {
+            Direction::Next => {
+                if self.current_index + 1 < self.image_files.len() {
+                    self.current_index + 1
+                } else {
+                    warn!("No next image available");
+                    return None;
+                }
+            }
+            Direction::Previous => {
+                if self.current_index > 0 {
+                    self.current_index - 1
+                } else {
+                    warn!("No previous image available");
+                    return None;
+                }
+            }
+        };
+
+        self.current_index = new_index;
+        let path = self.image_files[self.current_index].clone();
+        self.current_file_path = Some(path.clone());
+        self.current_rating = None;
+        Some(path)
+    }
+
     /// Returns the path to the next image in the list, if available.
     pub fn next_image(&mut self) -> Option<PathBuf> {
-        if !self.image_files.is_empty() && self.current_index + 1 < self.image_files.len() {
-            self.current_index += 1;
-            let path = self.image_files[self.current_index].clone();
-            self.current_file_path = Some(path.clone());
-            self.current_rating = None; // Reset rating until loaded
-            Some(path)
-        } else {
-            warn!("No next image available");
-            None
-        }
+        self.navigate_to(Direction::Next)
     }
 
     /// Returns the path to the previous image in the list, if available.
     pub fn prev_image(&mut self) -> Option<PathBuf> {
-        if !self.image_files.is_empty() && self.current_index > 0 {
-            self.current_index -= 1;
-            let path = self.image_files[self.current_index].clone();
-            self.current_file_path = Some(path.clone());
-            self.current_rating = None; // Reset rating until loaded
-            Some(path)
-        } else {
-            warn!("No previous image available");
-            None
-        }
+        self.navigate_to(Direction::Previous)
     }
 
     /// Updates the directory context based on a selected file path.
@@ -57,26 +79,27 @@ impl NavigationState {
         if let Some(parent) = file_path.parent() {
             self.current_directory = Some(parent.to_path_buf());
 
-            // Scan directory for image files
             if let Ok(files) = file_utils::scan_directory(parent) {
                 self.image_files = files;
-                // Find current file index
-                self.current_index = self
-                    .image_files
-                    .iter()
-                    .position(|p| p == &file_path)
-                    .unwrap_or(0);
-
+                self.current_index = self.find_file_index(&file_path);
                 self.current_file_path = Some(file_path.clone());
-                self.current_rating = None; // Reset rating until loaded
+                self.current_rating = None;
             }
         }
 
-        let elapsed = start.elapsed();
         debug!(
             "Completed directory update for {:?} in {:?}",
-            file_path, elapsed
+            file_path,
+            start.elapsed()
         );
+    }
+
+    /// Finds the index of a file in the image files list.
+    fn find_file_index(&self, file_path: &PathBuf) -> usize {
+        self.image_files
+            .iter()
+            .position(|p| p == file_path)
+            .unwrap_or(0)
     }
 
     /// Returns the current file path.
