@@ -1,10 +1,11 @@
+import { Palette } from "std-widgets.slint";
 component TableRow inherits Rectangle {
     in property <string> key;
     in property <string> value;
     in property <int> index;
 
     property <length> rec-padding: 0.2rem;
-    background: mod(index,2) == 0 ? #222 : #333;
+    background: mod(index,2) == 0 ? Palette.background.darker(0.1) : Palette.background.brighter(0.1);
 
     HorizontalLayout {
         padding: rec-padding;
