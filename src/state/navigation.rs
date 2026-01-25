@@ -41,16 +41,18 @@ impl NavigationState {
                 if current_index + 1 < self.image_files.len() {
                     current_index + 1
                 } else {
-                    warn!("No next image available");
-                    return None;
+                    // Wrap around to the first image
+                    debug!("Reached last image, wrapping to first");
+                    0
                 }
             }
             Direction::Previous => {
                 if current_index > 0 {
                     current_index - 1
                 } else {
-                    warn!("No previous image available");
-                    return None;
+                    // Wrap around to the last image
+                    debug!("Reached first image, wrapping to last");
+                    self.image_files.len() - 1
                 }
             }
         };
