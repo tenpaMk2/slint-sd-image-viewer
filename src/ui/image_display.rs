@@ -4,9 +4,9 @@
 //! then `slint::invoke_from_event_loop` to update UI from the background thread.
 
 use crate::{
-    image_cache::{CachedImage, ImageCache},
+    image_cache::ImageCache,
     image_loader,
-    metadata::{self, SdParameters, SdTag},
+    metadata::{SdParameters, SdTag},
     state::NavigationState,
 };
 use log::error;
@@ -14,62 +14,26 @@ use slint::ComponentHandle;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-/// Result of loading image and metadata.
-struct LoadedImageData {
-    data: Vec<u8>,
-    width: u32,
-    height: u32,
-    rating: Option<u8>,
-    sd_parameters: Option<SdParameters>,
-}
-
-/// Loads image and metadata from the specified path.
-fn load_image_with_metadata(path: &PathBuf) -> Result<LoadedImageData, String> {
-    let (data, width, height) = image_loader::load_image_blocking(path)
-        .map_err(|e| format!("Failed to load image: {}", e))?;
-
-    let rating = metadata::read_xmp_rating(path).ok().flatten();
-    let sd_parameters = metadata::read_sd_parameters(path).ok().flatten();
-
-    Ok(LoadedImageData {
-        data,
-        width,
-        height,
-        rating,
-        sd_parameters,
-    })
-}
-
 /// Updates the UI with successfully loaded image data.
 fn update_ui_with_image(
     ui: &crate::AppWindow,
-    image_data: LoadedImageData,
+    loaded: image_loader::LoadedImageData,
     state: Arc<Mutex<NavigationState>>,
     cache: Arc<Mutex<ImageCache>>,
     path: PathBuf,
 ) {
     // Store RGB8 data in cache before converting to slint::Image
     if let Ok(mut cache) = cache.lock() {
-        cache.put(
-            path.clone(),
-            CachedImage::new(
-                image_data.data.clone(),
-                image_data.width,
-                image_data.height,
-                image_data.rating,
-                image_data.sd_parameters.clone(),
-            ),
-        );
+        cache.put(path.clone(), loaded.clone());
     }
 
-    let image =
-        image_loader::create_slint_image(image_data.data, image_data.width, image_data.height);
+    let image = image_loader::create_slint_image(loaded.data, loaded.width, loaded.height);
 
     update_ui_state(
         ui,
         image,
-        image_data.rating,
-        image_data.sd_parameters.as_ref(),
+        loaded.rating,
+        loaded.sd_parameters.as_ref(),
         &state,
     );
 
@@ -227,14 +191,13 @@ pub fn load_and_display_image(
     // Cache miss - load from disk
     let cache_clone = cache.clone();
     rayon::spawn(move || {
-        let result = load_image_with_metadata(&path);
+        let result = image_loader::load_image_with_metadata(&path)
+            .map_err(|e| format!("Failed to load image: {}", e));
 
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui.upgrade() {
                 match result {
-                    Ok(image_data) => {
-                        update_ui_with_image(&ui, image_data, state, cache_clone, path)
-                    }
+                    Ok(loaded) => update_ui_with_image(&ui, loaded, state, cache_clone, path),
                     Err(error) => update_ui_with_error(&ui, &error_prefix, error),
                 }
             }
@@ -264,18 +227,9 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
             let cache_clone = cache.clone();
             rayon::spawn(move || {
                 // Silently ignore errors during preload
-                if let Ok(image_data) = load_image_with_metadata(&path) {
+                if let Ok(loaded) = image_loader::load_image_with_metadata(&path) {
                     if let Ok(mut cache) = cache_clone.lock() {
-                        cache.put(
-                            path,
-                            CachedImage::new(
-                                image_data.data,
-                                image_data.width,
-                                image_data.height,
-                                image_data.rating,
-                                image_data.sd_parameters,
-                            ),
-                        );
+                        cache.put(path, loaded);
                     }
                 }
             });
@@ -294,18 +248,9 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
             let cache_clone = cache.clone();
             rayon::spawn(move || {
                 // Silently ignore errors during preload
-                if let Ok(image_data) = load_image_with_metadata(&path) {
+                if let Ok(loaded) = image_loader::load_image_with_metadata(&path) {
                     if let Ok(mut cache) = cache_clone.lock() {
-                        cache.put(
-                            path,
-                            CachedImage::new(
-                                image_data.data,
-                                image_data.width,
-                                image_data.height,
-                                image_data.rating,
-                                image_data.sd_parameters,
-                            ),
-                        );
+                        cache.put(path, loaded);
                     }
                 }
             });

@@ -313,30 +313,46 @@ impl SdParameters {
     }
 }
 
-/// Read Stable Diffusion parameters from a PNG file's tEXt chunk.
+/// Parses XMP RDF string and extracts rating.
 ///
-/// Returns `Ok(Some(params))` if "parameters" key is found and parsed successfully,
-/// `Ok(None)` if no "parameters" key exists,
-/// `Err` if parsing fails.
-pub fn read_sd_parameters(path: &Path) -> Result<Option<SdParameters>> {
-    // PNG ファイルを開く
-    let file = std::fs::File::open(path)
-        .map_err(|e| AppError::MetadataRead(format!("Failed to open file: {}", e)))?;
+/// Returns `Some(rating)` if rating exists and is valid (0-5),
+/// `None` if rating doesn't exist or is invalid.
+pub fn parse_xmp_rating_from_rdf(xmp_rdf: &str) -> Option<u8> {
+    XmpMeta::from_str_with_options(xmp_rdf, Default::default())
+        .ok()
+        .and_then(extract_rating_from_xmp)
+}
 
-    let decoder = png::Decoder::new(file);
-    let reader = decoder
-        .read_info()
-        .map_err(|e| AppError::MetadataRead(format!("Failed to read PNG info: {}", e)))?;
-
-    // tEXt チャンクから "parameters" キーを探す
-    let info = reader.info();
-    for chunk in &info.uncompressed_latin1_text {
-        if chunk.keyword == "parameters" {
-            let parameter_str = &chunk.text;
-            return SdParameters::parse(parameter_str).map(Some);
+/// Extracts XMP RDF string from PNG Info's iTXt chunks.
+///
+/// Searches for "XML:com.adobe.xmp" or "xmp" keyword in iTXt chunks.
+/// Decompresses if necessary.
+pub fn extract_xmp_rdf_from_info(info: &png::Info) -> Result<Option<String>> {
+    for itxt_chunk in &info.utf8_text {
+        if itxt_chunk.keyword == "XML:com.adobe.xmp" || itxt_chunk.keyword == "xmp" {
+            let mut chunk = itxt_chunk.clone();
+            if chunk.compressed {
+                chunk.decompress_text().map_err(|e| {
+                    AppError::MetadataRead(format!("Failed to decompress iTXt: {}", e))
+                })?;
+            }
+            let xmp_rdf = chunk
+                .get_text()
+                .map_err(|e| AppError::MetadataRead(format!("Failed to get iTXt text: {}", e)))?;
+            return Ok(Some(xmp_rdf));
         }
     }
+    Ok(None)
+}
 
-    // "parameters" キーが見つからなかった
+/// Extracts SD parameters string from PNG Info's tEXt chunks.
+///
+/// Searches for "parameters" keyword in tEXt chunks.
+pub fn extract_sd_parameters_from_info(info: &png::Info) -> Result<Option<String>> {
+    for chunk in &info.uncompressed_latin1_text {
+        if chunk.keyword == "parameters" {
+            return Ok(Some(chunk.text.clone()));
+        }
+    }
     Ok(None)
 }

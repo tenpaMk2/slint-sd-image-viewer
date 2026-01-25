@@ -29,6 +29,12 @@ impl fmt::Display for AppError {
     }
 }
 
+impl From<png::DecodingError> for AppError {
+    fn from(err: png::DecodingError) -> Self {
+        AppError::ImageLoad(format!("PNG decoding error: {}", err))
+    }
+}
+
 impl std::error::Error for AppError {}
 
 impl From<image::ImageError> for AppError {

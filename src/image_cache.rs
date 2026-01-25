@@ -3,43 +3,14 @@
 //! Caches decoded RGB8 image data with metadata using an LRU policy.
 //! This allows instant display of recently viewed images.
 
-use crate::metadata::SdParameters;
+use crate::image_loader::LoadedImageData;
 use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
-/// Cached image data including RGB8 pixel data and metadata.
-#[derive(Clone)]
-pub struct CachedImage {
-    pub data: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
-    pub rating: Option<u8>,
-    pub sd_parameters: Option<SdParameters>,
-}
-
-impl CachedImage {
-    /// Creates a CachedImage from raw image data.
-    pub fn new(
-        data: Vec<u8>,
-        width: u32,
-        height: u32,
-        rating: Option<u8>,
-        sd_parameters: Option<SdParameters>,
-    ) -> Self {
-        Self {
-            data,
-            width,
-            height,
-            rating,
-            sd_parameters,
-        }
-    }
-}
-
 /// LRU cache for storing decoded images.
 pub struct ImageCache {
-    cache: LruCache<PathBuf, CachedImage>,
+    cache: LruCache<PathBuf, LoadedImageData>,
 }
 
 impl ImageCache {
@@ -51,7 +22,7 @@ impl ImageCache {
     }
 
     /// Retrieves an image from the cache if it exists.
-    pub fn get(&mut self, path: &PathBuf) -> Option<CachedImage> {
+    pub fn get(&mut self, path: &PathBuf) -> Option<LoadedImageData> {
         let result = self.cache.get(path).cloned();
         if result.is_some() {
             log::info!("Cache HIT: {}", path.display());
@@ -62,14 +33,14 @@ impl ImageCache {
     }
 
     /// Stores an image in the cache.
-    pub fn put(&mut self, path: PathBuf, cached_image: CachedImage) {
+    pub fn put(&mut self, path: PathBuf, image_data: LoadedImageData) {
         log::info!(
             "Cache PUT: {} ({}x{})",
             path.display(),
-            cached_image.width,
-            cached_image.height
+            image_data.width,
+            image_data.height
         );
-        self.cache.put(path, cached_image);
+        self.cache.put(path, image_data);
     }
 
     /// Updates the rating of a cached image without changing its position in the LRU.
