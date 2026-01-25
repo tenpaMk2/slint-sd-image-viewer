@@ -3,7 +3,6 @@ import { ViewState } from "view-state.slint";
 
 export component TopShortcut inherits FocusScope {
     key-pressed(event) => {
-        debug(event.text, event.modifiers);
         if (event.text == "c" && event.modifiers.control) {
             debug("`Ctrl+C` pressed");
             Logic.copy-image();
