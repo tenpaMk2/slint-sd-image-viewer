@@ -11,7 +11,7 @@ export component ViewArea inherits VerticalLayout {
 
     alignment: center;
 
-    Rectangle {
+    if image-loaded: Rectangle {
         background: Palette.alternate-background;
         clip: true;
 
@@ -33,38 +33,23 @@ export component ViewArea inherits VerticalLayout {
             }
         }
 
-        image := Image {
+        Image {
+            width: root.width;
+            height: root.height;
             image-fit: contain;
             source: ViewState.dynamic-image;
         }
     }
 
-    HorizontalLayout {
+    if !image-loaded: HorizontalLayout {
         alignment: center;
-        open-button := Button {
+        Button {
             text: "Open image";
+            width: 20rem;
+            height: 4rem;
             clicked => {
                 Logic.select-image();
             }
         }
     }
-
-    states [
-        image-active when image-loaded: {
-            image.visible: true;
-            image.width: root.width;
-            image.height: root.height;
-            open-button.visible: false;
-            open-button.width: 0;
-            open-button.height: 0;
-        }
-        image-inactive when !image-loaded: {
-            image.visible: false;
-            image.width: 0px;
-            image.height: 0px;
-            open-button.visible: true;
-            open-button.width: 20rem;
-            open-button.height: 4rem;
-        }
-    ]
 }
