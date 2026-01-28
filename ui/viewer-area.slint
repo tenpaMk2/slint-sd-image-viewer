@@ -7,6 +7,7 @@ import { Logic } from "logic.slint";
 import { ViewerState } from "viewer-state.slint";
 import { InfoArea } from "info-state.slint";
 import { UiButton } from "components/ui-button.slint";
+import { LeftRightNavigation } from "components/left-right-navigation.slint";
 
 export component ViewerArea inherits VerticalLayout {
     property <bool> image-loaded: ViewerState.image-loaded;
@@ -64,6 +65,26 @@ export component ViewerArea inherits VerticalLayout {
             height: root.height;
             image-fit: contain;
             source: ViewerState.dynamic-image;
+        }
+
+        if ui-active: LeftRightNavigation {
+            is-left: true;
+            x: 0;
+            clicked => {
+                debug("left clicked");
+                ui-active = true;
+                ui-timer.start();
+            }
+        }
+
+        if ui-active: LeftRightNavigation {
+            is-left: false;
+            x: root.width - 5rem;
+            clicked => {
+                debug("right clicked");
+                ui-active = true;
+                ui-timer.start();
+            }
         }
 
         if ui-active: Rectangle {

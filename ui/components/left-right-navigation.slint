@@ -1,0 +1,31 @@
+import {
+    Button,
+    Palette,
+} from "std-widgets.slint";
+
+export component LeftRightNavigation inherits Rectangle {
+    in property <bool> is-left: true;
+    callback clicked();
+
+    // 位置は親コンポーネントで設定する
+    width: 5rem;
+    height: 100%;
+    background: Palette.control-background.transparentize(0.5);
+
+    TouchArea {
+        clicked => {
+            clicked();
+        }
+    }
+
+    if is-left:Image {
+        source: @image-url("../icons/lucide-chevron-left.svg");
+        colorize: Palette.control-foreground;
+        width: 4rem;
+    }
+    if !is-left:Image {
+        source: @image-url("../icons/lucide-chevron-right.svg");
+        colorize: Palette.control-foreground;
+        width: 4rem;
+    }
+}
