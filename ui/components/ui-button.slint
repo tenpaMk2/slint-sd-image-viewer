@@ -1,0 +1,12 @@
+import {
+    Button,
+} from "std-widgets.slint";
+
+export component UiButton inherits Button {
+    in property <bool> active: false;
+
+    // iconは外部から指定
+    icon-size: 1.5rem;
+    colorize-icon: true;
+    primary: active;
+}
