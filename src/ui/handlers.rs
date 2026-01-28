@@ -51,9 +51,10 @@ fn update_ui_after_rating_success(
     if let Ok(mut nav_state) = state.lock() {
         nav_state.set_current_rating(Some(rating));
     }
-    ui.global::<crate::ViewState>()
+    ui.global::<crate::ViewerState>()
         .set_current_rating(rating as i32);
-    ui.global::<crate::ViewState>().set_error_message("".into());
+    ui.global::<crate::ViewerState>()
+        .set_error_message("".into());
 
     // Update cache if the image is cached
     if let Some(path) = current_path {
@@ -65,7 +66,7 @@ fn update_ui_after_rating_success(
 
 /// Updates the UI after a failed rating write.
 fn update_ui_after_rating_error(ui: &crate::AppWindow, error: String) {
-    ui.global::<crate::ViewState>()
+    ui.global::<crate::ViewerState>()
         .set_error_message(error.into());
 }
 
@@ -85,7 +86,7 @@ fn create_rating_handler(
 
         let Some(path) = current_path else {
             if let Some(ui) = ui_handle.upgrade() {
-                ui.global::<crate::ViewState>()
+                ui.global::<crate::ViewerState>()
                     .set_error_message("No image file selected".into());
             }
             return;
@@ -98,7 +99,8 @@ fn create_rating_handler(
         mark_file_as_writing(&current_writing, path.clone());
 
         if let Some(ui) = ui_handle.upgrade() {
-            ui.global::<crate::ViewState>().set_rating_in_progress(true);
+            ui.global::<crate::ViewerState>()
+                .set_rating_in_progress(true);
         }
 
         let ui_handle_clone = ui_handle.clone();
@@ -112,7 +114,7 @@ fn create_rating_handler(
 
             let _ = slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_handle_clone.upgrade() {
-                    ui.global::<crate::ViewState>()
+                    ui.global::<crate::ViewerState>()
                         .set_rating_in_progress(false);
 
                     match write_result {
@@ -140,7 +142,7 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
             let _ = slint::spawn_local(async move {
                 let Some(file_handle) = AsyncFileDialog::new().pick_file().await else {
                     if let Some(ui) = ui_handle.upgrade() {
-                        ui.global::<crate::ViewState>()
+                        ui.global::<crate::ViewerState>()
                             .set_error_message("No file selected".into());
                     }
                     return;
@@ -231,7 +233,7 @@ fn stop_auto_reload_internal(
         if let Some(timer) = timer_lock.take() {
             timer.stop();
             if let Some(ui) = ui_handle.upgrade() {
-                ui.global::<crate::ViewState>()
+                ui.global::<crate::ViewerState>()
                     .set_auto_reload_active(false);
             }
         }
@@ -308,7 +310,8 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
             }
 
             if let Some(ui) = ui_handle.upgrade() {
-                ui.global::<crate::ViewState>().set_auto_reload_active(true);
+                ui.global::<crate::ViewerState>()
+                    .set_auto_reload_active(true);
             }
         }
     });

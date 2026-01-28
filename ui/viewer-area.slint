@@ -4,12 +4,12 @@ import {
     ScrollView,
 } from "std-widgets.slint";
 import { Logic } from "logic.slint";
-import { ViewState } from "view-state.slint";
+import { ViewerState } from "viewer-state.slint";
 import { InfoArea } from "info-state.slint";
 import { UiButton } from "components/ui-button.slint";
 
-export component ViewArea inherits VerticalLayout {
-    property <bool> image-loaded: ViewState.image-loaded;
+export component ViewerArea inherits VerticalLayout {
+    property <bool> image-loaded: ViewerState.image-loaded;
 
     alignment: center;
 
@@ -39,7 +39,7 @@ export component ViewArea inherits VerticalLayout {
             width: root.width;
             height: root.height;
             image-fit: contain;
-            source: ViewState.dynamic-image;
+            source: ViewerState.dynamic-image;
         }
 
         Rectangle {
@@ -50,7 +50,7 @@ export component ViewArea inherits VerticalLayout {
 
             Text {
                 vertical-alignment: center;
-                text: ViewState.current-index + " / " + ViewState.total-index;
+                text: ViewerState.current-index + " / " + ViewerState.total-index;
             }
 
             HorizontalLayout {

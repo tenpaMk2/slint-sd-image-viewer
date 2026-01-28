@@ -1,5 +1,5 @@
 import { Logic } from "logic.slint";
-import { ViewState } from "view-state.slint";
+import { ViewerState } from "viewer-state.slint";
 
 export component TopShortcut inherits FocusScope {
     key-pressed(event) => {
@@ -17,7 +17,7 @@ export component TopShortcut inherits FocusScope {
             accept
         } else if (event.text == "l") {
             debug("`L` pressed");
-            if (ViewState.auto-reload-active) {
+            if (ViewerState.auto-reload-active) {
                 Logic.stop-auto-reload();
             } else {
                 Logic.start-auto-reload();
@@ -25,37 +25,37 @@ export component TopShortcut inherits FocusScope {
             accept
         } else if (event.text == "0") {
             debug("`0` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-0();
             }
             accept
         } else if (event.text == "1") {
             debug("`1` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-1();
             }
             accept
         } else if (event.text == "2") {
             debug("`2` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-2();
             }
             accept
         } else if (event.text == "3") {
             debug("`3` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-3();
             }
             accept
         } else if (event.text == "4") {
             debug("`4` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-4();
             }
             accept
         } else if (event.text == "5") {
             debug("`5` pressed");
-            if (!ViewState.rating-in-progress) {
+            if (!ViewerState.rating-in-progress) {
                 Logic.rate-5();
             }
             accept

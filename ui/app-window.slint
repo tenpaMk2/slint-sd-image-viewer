@@ -10,10 +10,10 @@ import {
 } from "std-widgets.slint";
 import { Slider } from "slider.slint";
 import { TopShortcut } from "top-shortcut.slint";
-import { ViewArea } from "view-area.slint";
+import { ViewerArea } from "viewer-area.slint";
 import { InfoArea } from "info-area.slint";
 export { Logic } from "logic.slint";
-export { ViewState } from "view-state.slint";
+export { ViewerState } from "viewer-state.slint";
 
 export component AppWindow inherits Window {
     property <length> initial-width: 1280px;
@@ -51,7 +51,7 @@ export component AppWindow inherits Window {
     }
 
     HorizontalLayout {
-        ViewArea {
+        ViewerArea {
             width: view-width;
         }
 

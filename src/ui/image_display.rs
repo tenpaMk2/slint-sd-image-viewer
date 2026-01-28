@@ -45,7 +45,7 @@ fn update_ui_with_image(
 fn update_ui_with_error(ui: &crate::AppWindow, error_prefix: &str, error: String) {
     let error_message = format!("{}: {}", error_prefix, error);
     error!("{}", error_message);
-    ui.global::<crate::ViewState>()
+    ui.global::<crate::ViewerState>()
         .set_error_message(error_message.into());
 }
 
@@ -57,37 +57,38 @@ fn update_ui_state(
     sd_parameters: Option<&SdParameters>,
     state: &Arc<Mutex<NavigationState>>,
 ) {
-    ui.global::<crate::ViewState>().set_dynamic_image(image);
-    ui.global::<crate::ViewState>().set_image_loaded(true);
-    ui.global::<crate::ViewState>().set_error_message("".into());
+    ui.global::<crate::ViewerState>().set_dynamic_image(image);
+    ui.global::<crate::ViewerState>().set_image_loaded(true);
+    ui.global::<crate::ViewerState>()
+        .set_error_message("".into());
 
     let rating_i32 = rating.map(|r| r as i32).unwrap_or(-1);
-    ui.global::<crate::ViewState>()
+    ui.global::<crate::ViewerState>()
         .set_current_rating(rating_i32);
 
     // Update SD parameters
     if let Some(params) = sd_parameters {
         // Format positive tags
         let positive_prompt = format_tags(&params.positive_sd_tags);
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_positive_prompt(positive_prompt.into());
 
         // Format negative tags
         let negative_prompt = format_tags(&params.negative_sd_tags);
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_negative_prompt(negative_prompt.into());
 
         // Format other parameters as key-value pairs
         let sd_params = format_sd_parameters(params);
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(sd_params)));
     } else {
         // Clear SD parameters
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_positive_prompt("".into());
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_negative_prompt("".into());
-        ui.global::<crate::ViewState>()
+        ui.global::<crate::ViewerState>()
             .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(vec![])));
     }
 
@@ -154,7 +155,7 @@ fn format_sd_parameters(params: &SdParameters) -> Vec<(slint::SharedString, slin
 /// 1. Checks the cache first for instant display
 /// 2. If cache miss, spawns a rayon thread to decode the image (CPU-intensive)
 /// 3. Uses invoke_from_event_loop to return to the UI thread
-/// 4. Updates ViewState with the loaded image or error message
+/// 4. Updates ViewerState with the loaded image or error message
 pub fn load_and_display_image(
     ui: slint::Weak<crate::AppWindow>,
     path: PathBuf,
