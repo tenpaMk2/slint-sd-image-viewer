@@ -1,5 +1,6 @@
 //! Navigation state for managing image file lists and current position.
 
+use crate::error::NavigationError;
 use crate::file_utils;
 use log::{debug, warn};
 use std::path::PathBuf;
@@ -27,13 +28,16 @@ impl NavigationState {
     }
 
     /// Navigates to an image in the specified direction.
-    fn navigate_to(&mut self, direction: Direction) -> Option<PathBuf> {
+    fn navigate_to(&mut self, direction: Direction) -> Result<(), NavigationError> {
         if self.image_files.is_empty() {
             warn!("No images available for navigation");
-            return None;
+            return Err(NavigationError::NoImages);
         }
 
-        let current_path = self.current_file_path.as_ref()?;
+        let current_path = self
+            .current_file_path
+            .as_ref()
+            .ok_or(NavigationError::NoCurrentPath)?;
         let current_index = self.find_file_index(current_path);
 
         let new_index = match direction {
@@ -60,40 +64,46 @@ impl NavigationState {
         let path = self.image_files[new_index].clone();
         self.current_file_path = Some(path.clone());
         self.current_rating = None;
-        Some(path)
+        debug!("Navigated to: {:?}", path);
+        Ok(())
     }
 
-    /// Returns the path to the next image in the list, if available.
-    pub fn next_image(&mut self) -> Option<PathBuf> {
+    /// Navigates to the next image in the list.
+    pub fn navigate_next(&mut self) -> Result<(), NavigationError> {
         self.navigate_to(Direction::Next)
     }
 
-    /// Returns the path to the previous image in the list, if available.
-    pub fn prev_image(&mut self) -> Option<PathBuf> {
+    /// Navigates to the previous image in the list.
+    pub fn navigate_prev(&mut self) -> Result<(), NavigationError> {
         self.navigate_to(Direction::Previous)
     }
 
     /// Updates the directory context based on a selected file path.
     /// Scans the parent directory and sets the current file path to the selected file.
-    pub fn update_directory(&mut self, file_path: PathBuf) {
+    pub fn update_directory(&mut self, file_path: PathBuf) -> Result<(), NavigationError> {
         let start = std::time::Instant::now();
         debug!("Starting directory update for: {:?}", file_path);
 
-        if let Some(parent) = file_path.parent() {
-            self.current_directory = Some(parent.to_path_buf());
+        let parent = file_path.parent().ok_or_else(|| {
+            NavigationError::DirectoryScanFailed("No parent directory".to_string())
+        })?;
 
-            if let Ok(files) = file_utils::scan_directory(parent) {
-                self.image_files = files;
-                self.current_file_path = Some(file_path.clone());
-                self.current_rating = None;
-            }
-        }
+        self.current_directory = Some(parent.to_path_buf());
+
+        let files = file_utils::scan_directory(parent).map_err(|e| {
+            NavigationError::DirectoryScanFailed(format!("Failed to scan directory: {}", e))
+        })?;
+
+        self.image_files = files;
+        self.current_file_path = Some(file_path.clone());
+        self.current_rating = None;
 
         debug!(
             "Completed directory update for {:?} in {:?}",
             file_path,
             start.elapsed()
         );
+        Ok(())
     }
 
     /// Finds the index of a file in the image files list.
@@ -104,8 +114,8 @@ impl NavigationState {
             .unwrap_or(0)
     }
 
-    /// Returns the current file path.
-    pub fn get_current_file_path(&self) -> Option<PathBuf> {
+    /// Returns the current file path, if set.
+    pub fn current_path(&self) -> Option<PathBuf> {
         self.current_file_path.clone()
     }
 
@@ -139,10 +149,10 @@ impl NavigationState {
     }
 
     /// Navigates to the last image in the list.
-    pub fn navigate_to_last_image(&mut self) -> Option<PathBuf> {
+    pub fn navigate_to_last(&mut self) -> Result<(), NavigationError> {
         if self.image_files.is_empty() {
             warn!("No images available for navigation to last");
-            return None;
+            return Err(NavigationError::NoImages);
         }
 
         let last_index = self.image_files.len() - 1;
@@ -150,31 +160,31 @@ impl NavigationState {
         self.current_file_path = Some(path.clone());
         self.current_rating = None;
         debug!("Navigated to last image: {:?}", path);
-        Some(path)
+        Ok(())
     }
 
-    /// Rescans the current directory and returns true if the image list changed.
-    pub fn rescan_directory_for_current(&mut self) -> bool {
-        let Some(ref current_dir) = self.current_directory else {
-            warn!("No current directory to rescan");
-            return false;
-        };
+    /// Rescans the current directory.
+    pub fn rescan_directory(&mut self) -> Result<(), NavigationError> {
+        let current_dir = self.current_directory.as_ref().ok_or_else(|| {
+            NavigationError::DirectoryScanFailed("No current directory to rescan".to_string())
+        })?;
 
-        let Ok(new_files) = file_utils::scan_directory(current_dir) else {
-            warn!("Failed to rescan directory: {:?}", current_dir);
-            return false;
-        };
+        let new_files = file_utils::scan_directory(current_dir).map_err(|e| {
+            NavigationError::DirectoryScanFailed(format!("Failed to rescan directory: {}", e))
+        })?;
 
-        let changed = new_files != self.image_files;
-        if changed {
-            debug!(
-                "Directory changed: {} -> {} files",
-                self.image_files.len(),
-                new_files.len()
-            );
-            self.image_files = new_files;
-        }
+        debug!(
+            "Directory rescanned: {} -> {} files",
+            self.image_files.len(),
+            new_files.len()
+        );
+        self.image_files = new_files;
 
-        changed
+        Ok(())
+    }
+
+    /// Returns the number of images in the current directory.
+    pub fn image_count(&self) -> usize {
+        self.image_files.len()
     }
 }

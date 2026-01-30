@@ -9,6 +9,7 @@ mod file_utils;
 mod image_cache;
 mod image_loader;
 mod metadata;
+mod services;
 mod state;
 mod ui;
 
