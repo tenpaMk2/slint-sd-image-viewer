@@ -23,3 +23,9 @@ xmp_toolkit = "1.12"
 
 [build-dependencies]
 slint-build = "1.14.1"
+
+[package.metadata.bundle]
+name = "My Slint App"
+identifier = "com.example.my-slint-app"
+# icon = ["icons/icon.png"] # アイコンがあれば指定（なければこの行を消す）
+category = "DeveloperTool"
