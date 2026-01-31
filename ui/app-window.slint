@@ -3,8 +3,10 @@ import { TopShortcut } from "top-shortcut.slint";
 import { ViewerArea } from "viewer-area.slint";
 import { InfoArea } from "info-area.slint";
 import { InfoState } from "info-state.slint";
-export { Logic } from "logic.slint";
-export { ViewerState } from "viewer-state.slint";
+import { Logic } from "logic.slint";
+import { ViewerState } from "viewer-state.slint";
+export { Logic }
+export { ViewerState }
 
 export component AppWindow inherits Window {
     property <length> initial-width: 1280px;
@@ -25,6 +27,7 @@ export component AppWindow inherits Window {
                 title: "Open image";
                 activated => {
                     debug("Open image menu activated");
+                    Logic.select-image();
                 }
             }
 
