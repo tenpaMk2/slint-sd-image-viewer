@@ -17,6 +17,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(debug_assertions)]
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
+        .format(|buf, record| {
+            use std::io::Write;
+
+            let pkg_name = env!("CARGO_PKG_NAME").replace("-", "_");
+            let prefix = format!("{}::", pkg_name);
+            let target = record
+                .target()
+                .strip_prefix(&prefix)
+                .unwrap_or(record.target());
+
+            let level_style = buf.default_level_style(record.level());
+            let level = level_style.render();
+            let reset = level_style.render_reset();
+
+            writeln!(
+                buf,
+                "[{} {}{}{} {}] {}",
+                buf.timestamp(),
+                level,
+                record.level(),
+                reset,
+                target,
+                record.args()
+            )
+        })
         .init();
 
     let app = AppWindow::new()?;
