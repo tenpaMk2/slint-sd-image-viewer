@@ -57,6 +57,7 @@ fn handle_debounced_events<F>(
         return;
     }
 
+    debug!("Navigating to last image");
     let path = match navigation_service.navigate_to_last() {
         Ok(path) => path,
         Err(e) => {
@@ -64,8 +65,6 @@ fn handle_debounced_events<F>(
             return;
         }
     };
-
-    debug!("Navigating to last image: {}", path.format_for_log());
     let on_change_clone = on_change.clone();
     let _ = slint::invoke_from_event_loop(move || {
         on_change_clone(path);
