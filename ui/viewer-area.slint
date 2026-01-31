@@ -93,6 +93,7 @@ export component ViewerArea inherits Rectangle {
             x: 0;
             clicked => {
                 debug("left clicked");
+                Logic.prev-image();
                 ui-timer-trigger = !ui-timer-trigger;
             }
         }
@@ -102,6 +103,7 @@ export component ViewerArea inherits Rectangle {
             x: root.width - 5rem;
             clicked => {
                 debug("right clicked");
+                Logic.next-image();
                 ui-timer-trigger = !ui-timer-trigger;
             }
         }
