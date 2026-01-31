@@ -11,7 +11,23 @@ import { LeftRightNavigation } from "components/left-right-navigation.slint";
 
 export component ViewerArea inherits Rectangle {
     property <bool> image-loaded: ViewerState.image-loaded;
-    property <bool> ui-active: true;
+    property <bool> ui-active: ViewerState.ui-active;
+
+    ui-timer := Timer {
+        interval: 3s;
+        triggered => {
+            debug("UI timeout");
+            ViewerState.ui-active = false;
+            self.stop();
+        }
+    }
+
+    // Watch for ui-active changes to restart timer
+    changed ui-active => {
+        if ui-active {
+            ui-timer.restart();
+        }
+    }
 
     if image-loaded: Rectangle {
         background: Palette.alternate-background;
@@ -35,20 +51,10 @@ export component ViewerArea inherits Rectangle {
             }
         }
 
-        ui-timer := Timer {
-            interval: 3s;
-            triggered => {
-                debug("UI timeout");
-                ui-active = false;
-                self.stop();
-            }
-        }
-
         TouchArea {
             clicked => {
                 debug("clicked");
-                ui-active = true;
-                ui-timer.start();
+                ViewerState.ui-active = true;
             }
             double-clicked => {
                 debug("double-clicked");
@@ -72,8 +78,7 @@ export component ViewerArea inherits Rectangle {
             x: 0;
             clicked => {
                 debug("left clicked");
-                ui-active = true;
-                ui-timer.start();
+                ViewerState.ui-active = true;
             }
         }
 
@@ -82,8 +87,7 @@ export component ViewerArea inherits Rectangle {
             x: root.width - 5rem;
             clicked => {
                 debug("right clicked");
-                ui-active = true;
-                ui-timer.start();
+                ViewerState.ui-active = true;
             }
         }
 
@@ -131,8 +135,7 @@ export component ViewerArea inherits Rectangle {
         }
     }
 
-    if !image-loaded: 
-        Button {
+    if !image-loaded: Button {
         preferred-width: 20rem;
         preferred-height: 6rem;
 
