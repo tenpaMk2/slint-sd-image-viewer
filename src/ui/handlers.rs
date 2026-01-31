@@ -178,7 +178,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
 /// Internal helper to stop the auto-reload watcher.
 fn stop_auto_reload_internal(
     ui_handle: &slint::Weak<crate::AppWindow>,
-    watcher_ref: &Arc<Mutex<Option<notify::poll::PollWatcher>>>,
+    watcher_ref: &Arc<Mutex<Option<crate::state::AutoReloadDebouncer>>>,
 ) {
     if let Ok(mut watcher_lock) = watcher_ref.lock() {
         if watcher_lock.take().is_some() {

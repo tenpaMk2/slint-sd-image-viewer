@@ -1,20 +1,23 @@
 //! State management for the image viewer application.
 
 use crate::image_cache::ImageCache;
-use notify::poll::PollWatcher;
+use notify_debouncer_mini::{notify::PollWatcher, Debouncer};
 use std::sync::{Arc, Mutex};
 
 pub mod navigation;
 
 pub use navigation::NavigationState;
 
+/// Type alias for the auto-reload debouncer.
+pub type AutoReloadDebouncer = Debouncer<PollWatcher>;
+
 /// Application-wide state container.
 pub struct AppState {
     pub navigation: Arc<Mutex<NavigationState>>,
     /// LRU cache for decoded images.
     pub image_cache: Arc<Mutex<ImageCache>>,
-    /// Watcher for auto-reload functionality.
-    pub auto_reload_watcher: Arc<Mutex<Option<PollWatcher>>>,
+    /// Debouncer for auto-reload functionality.
+    pub auto_reload_watcher: Arc<Mutex<Option<AutoReloadDebouncer>>>,
 }
 
 impl AppState {

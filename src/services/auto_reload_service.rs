@@ -5,15 +5,51 @@
 use crate::error::NavigationError;
 use crate::file_utils::PathExt;
 use crate::services::NavigationService;
-use log::warn;
-use notify::{Config, Event, PollWatcher, RecursiveMode, Watcher};
+use log::{debug, warn};
+use notify_debouncer_mini::{new_debouncer_opt, notify::RecursiveMode, Config};
 use std::path::PathBuf;
-use std::sync::mpsc::channel;
 use std::time::Duration;
 
 /// Service for managing auto-reload checks.
 pub struct AutoReloadService {
     navigation_service: NavigationService,
+}
+
+/// Handles debounced file system events.
+fn handle_debounced_events<F>(
+    events: Vec<notify_debouncer_mini::DebouncedEvent>,
+    navigation_service: &NavigationService,
+    on_change: &std::sync::Arc<F>,
+) where
+    F: Fn(PathBuf) + Send + Sync + 'static,
+{
+    if events.is_empty() {
+        return;
+    }
+
+    debug!("Debounced file system events: {} events", events.len());
+    for event in &events {
+        debug!("  - {:?} for {}", event.kind, event.path.format_for_log());
+    }
+
+    if let Err(e) = navigation_service.rescan_directory() {
+        warn!("Failed to rescan directory: {}", e);
+        return;
+    }
+
+    let path = match navigation_service.navigate_to_last() {
+        Ok(path) => path,
+        Err(e) => {
+            warn!("Failed to navigate to last image: {}", e);
+            return;
+        }
+    };
+
+    debug!("Navigating to last image: {}", path.format_for_log());
+    let on_change_clone = on_change.clone();
+    let _ = slint::invoke_from_event_loop(move || {
+        on_change_clone(path);
+    });
 }
 
 impl AutoReloadService {
@@ -22,15 +58,16 @@ impl AutoReloadService {
         Self { navigation_service }
     }
 
-    /// Starts watching the directory for changes.
+    /// Starts watching the directory for changes with debouncing.
     ///
-    /// Returns a `PollWatcher` that monitors the directory for file changes.
-    /// When changes are detected, it rescans the directory and navigates to the last image.
+    /// Returns a `Debouncer` that monitors the directory for file changes.
+    /// When changes are detected (after a 300ms debounce period), it rescans
+    /// the directory and navigates to the last image.
     pub fn start_watching<F>(
         &self,
         state: std::sync::Arc<std::sync::Mutex<crate::state::NavigationState>>,
         on_change: F,
-    ) -> Result<PollWatcher, NavigationError>
+    ) -> Result<crate::state::AutoReloadDebouncer, NavigationError>
     where
         F: Fn(PathBuf) + Send + Sync + 'static,
     {
@@ -44,75 +81,43 @@ impl AutoReloadService {
             })?
         };
 
-        let (tx, rx) = channel::<notify::Result<Event>>();
-
-        // Create a PollWatcher with 2-second polling interval
-        let config = Config::default().with_poll_interval(Duration::from_secs(2));
         let navigation_service = self.navigation_service.clone();
+        let on_change = std::sync::Arc::new(on_change);
 
-        let mut watcher = PollWatcher::new(
-            move |res: notify::Result<Event>| {
-                if tx.send(res).is_err() {
-                    warn!("Failed to send file system event");
+        // Create a debounced watcher with 300ms debounce period using PollWatcher backend
+        let notify_config = notify_debouncer_mini::notify::Config::default()
+            .with_poll_interval(Duration::from_secs(2));
+        let debouncer_config = Config::default()
+            .with_timeout(Duration::from_millis(800))
+            .with_notify_config(notify_config);
+
+        let mut debouncer = new_debouncer_opt::<_, notify_debouncer_mini::notify::PollWatcher>(
+            debouncer_config,
+            move |res: notify_debouncer_mini::DebounceEventResult| match res {
+                Ok(events) => {
+                    handle_debounced_events(events, &navigation_service, &on_change);
+                }
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !error_msg.contains(".tmp") {
+                        warn!("File watcher error: {}", error);
+                    }
                 }
             },
-            config,
         )
         .map_err(|e| {
-            NavigationError::DirectoryScanFailed(format!("Failed to create watcher: {}", e))
+            NavigationError::DirectoryScanFailed(format!("Failed to create debouncer: {}", e))
         })?;
 
-        // Start watching the directory (non-recursive)
-        watcher
+        // Start watching the directory (non-recursive) using PollWatcher backend
+        debouncer
+            .watcher()
             .watch(&directory, RecursiveMode::NonRecursive)
             .map_err(|e| {
                 NavigationError::DirectoryScanFailed(format!("Failed to watch directory: {}", e))
             })?;
 
-        // Spawn a thread to handle events
-        let on_change = std::sync::Arc::new(on_change);
-        let on_change_for_thread = on_change.clone();
-        std::thread::spawn(move || {
-            loop {
-                match rx.recv() {
-                    Ok(Ok(event)) => {
-                        use log::debug;
-                        debug!("File system event detected: {:?}", event);
-
-                        match navigation_service.rescan_directory() {
-                            Ok(_) => match navigation_service.navigate_to_last() {
-                                Ok(path) => {
-                                    debug!("Navigating to last image: {}", path.format_for_log());
-                                    let on_change_clone = on_change_for_thread.clone();
-                                    let _ = slint::invoke_from_event_loop(move || {
-                                        on_change_clone(path);
-                                    });
-                                }
-                                Err(e) => {
-                                    warn!("Failed to navigate to last image: {}", e);
-                                }
-                            },
-                            Err(e) => {
-                                warn!("Failed to rescan directory: {}", e);
-                            }
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        // Silently ignore errors for temporary files
-                        let error_msg = e.to_string();
-                        if !error_msg.contains(".tmp") {
-                            warn!("File watcher error: {}", e);
-                        }
-                    }
-                    Err(_) => {
-                        // Channel closed, exit thread
-                        break;
-                    }
-                }
-            }
-        });
-
-        Ok(watcher)
+        Ok(debouncer)
     }
 
     /// Navigates to the last image without checking for changes.
