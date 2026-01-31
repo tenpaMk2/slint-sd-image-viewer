@@ -1,0 +1,45 @@
+import { Palette } from "std-widgets.slint";
+import { MenuItem } from "menu-item.slint";
+
+export component ViewerMenu inherits PopupWindow {
+    in-out property <bool> is-open;
+    callback menu-closed();
+    callback copy-clicked();
+    callback delete-clicked();
+
+    width: 12rem;
+
+    Rectangle {
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        border-radius: 4px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: #00000040;
+
+        VerticalLayout {
+            padding: 0.25rem;
+            spacing: 0;
+
+            MenuItem {
+                text: @tr("Copy");
+                clicked => {
+                    copy-clicked();
+                    root.close();
+                    is-open = false;
+                    menu-closed();
+                }
+            }
+
+            MenuItem {
+                text: @tr("Delete");
+                clicked => {
+                    delete-clicked();
+                    root.close();
+                    is-open = false;
+                    menu-closed();
+                }
+            }
+        }
+    }
+}

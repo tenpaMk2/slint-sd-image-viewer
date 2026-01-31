@@ -1,0 +1,25 @@
+import { Palette } from "std-widgets.slint";
+
+export component MenuItem inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+
+    height: 2rem;
+    border-radius: 2px;
+    background: touch-area.has-hover ? Palette.accent-background : transparent;
+
+    HorizontalLayout {
+        padding: 0.5rem;
+        Text {
+            text: root.text;
+            vertical-alignment: center;
+            color: Palette.foreground;
+        }
+    }
+
+    touch-area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}

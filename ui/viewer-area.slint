@@ -8,6 +8,7 @@ import { ViewerState } from "viewer-state.slint";
 import { InfoState } from "info-state.slint";
 import { UiButton } from "components/ui-button.slint";
 import { LeftRightNavigation } from "components/left-right-navigation.slint";
+import { ViewerMenu } from "components/viewer-menu.slint";
 
 export component ViewerArea inherits Rectangle {
     property <bool> image-loaded: ViewerState.image-loaded;
@@ -15,12 +16,15 @@ export component ViewerArea inherits Rectangle {
     property <bool> ui-timer-trigger: ViewerState.ui-timer-trigger;
     property <length> last-mouse-x: 0px;
     property <length> last-mouse-y: 0px;
+    property <bool> menu-open: false;
 
     ui-timer := Timer {
         interval: 3s;
         triggered => {
             debug("UI timeout");
-            ui-active = false;
+            if (!menu-open) {
+                ui-active = false;
+            }
             self.stop();
         }
     }
@@ -29,6 +33,17 @@ export component ViewerArea inherits Rectangle {
     changed ui-timer-trigger => {
         ui-active = true;
         ui-timer.restart();
+    }
+
+    // Keep UI active while menu is open
+    changed menu-open => {
+        if (menu-open) {
+            ui-active = true;
+            ui-timer.stop();
+            debug("stopped ui-timer because menu is open");
+        } else {
+            ui-timer.restart();
+        }
     }
 
     if image-loaded: Rectangle {
@@ -140,15 +155,38 @@ export component ViewerArea inherits Rectangle {
                         }
                     }
 
-                    UiButton {
+                    menu-button := UiButton {
                         icon: @image-url("icons/lucide-ellipsis-vertical.svg");
+                        active: menu-open;
                         clicked => {
                             debug("Open menu");
+                            if (menu-open) {
+                                menu-popup.close();
+                            } else {
+                                menu-popup.show();
+                            }
+                            menu-open = !menu-open;
                         }
-                        // TODO: ここにDeleteやCopyを追加
                     }
                 }
             }
+        }
+    }
+
+    menu-popup := ViewerMenu {
+        x: root.width - 12.5rem;
+        y: 3.5rem;
+        is-open <=> menu-open;
+        menu-closed => {
+            menu-open = false;
+        }
+        copy-clicked => {
+            debug("Menu: Copy");
+            ui-timer-trigger = !ui-timer-trigger;
+        }
+        delete-clicked => {
+            debug("Menu: Delete");
+            ui-timer-trigger = !ui-timer-trigger;
         }
     }
 
