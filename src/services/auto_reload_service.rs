@@ -3,6 +3,7 @@
 //! Provides directory monitoring and change detection for auto-reload feature.
 
 use crate::error::NavigationError;
+use crate::file_utils::PathExt;
 use crate::services::NavigationService;
 use log::warn;
 use notify::{Config, Event, PollWatcher, RecursiveMode, Watcher};
@@ -81,7 +82,7 @@ impl AutoReloadService {
                         match navigation_service.rescan_directory() {
                             Ok(_) => match navigation_service.navigate_to_last() {
                                 Ok(path) => {
-                                    debug!("Navigating to last image: {}", crate::file_utils::format_path_for_log(&path));
+                                    debug!("Navigating to last image: {}", path.format_for_log());
                                     let on_change_clone = on_change_for_thread.clone();
                                     let _ = slint::invoke_from_event_loop(move || {
                                         on_change_clone(path);

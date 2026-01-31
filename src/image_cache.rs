@@ -3,7 +3,7 @@
 //! Caches decoded RGB8 image data with metadata using an LRU policy.
 //! This allows instant display of recently viewed images.
 
-use crate::file_utils::format_path_for_log;
+use crate::file_utils::PathExt;
 use crate::image_loader::LoadedImageData;
 use lru::LruCache;
 use std::num::NonZeroUsize;
@@ -26,9 +26,9 @@ impl ImageCache {
     pub fn get(&mut self, path: &PathBuf) -> Option<LoadedImageData> {
         let result = self.cache.get(path).cloned();
         if result.is_some() {
-            log::info!("Cache HIT: {}", format_path_for_log(path));
+            log::info!("Cache HIT: {}", path.format_for_log());
         } else {
-            log::info!("Cache MISS: {}", format_path_for_log(path));
+            log::info!("Cache MISS: {}", path.format_for_log());
         }
         result
     }
@@ -37,7 +37,7 @@ impl ImageCache {
     pub fn put(&mut self, path: PathBuf, image_data: LoadedImageData) {
         log::info!(
             "Cache PUT: {} ({}x{})",
-            format_path_for_log(&path),
+            path.format_for_log(),
             image_data.width,
             image_data.height
         );

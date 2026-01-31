@@ -1,7 +1,7 @@
 //! Navigation state for managing image file lists and current position.
 
 use crate::error::NavigationError;
-use crate::file_utils;
+use crate::file_utils::{self, PathExt};
 use log::{debug, warn};
 use std::path::PathBuf;
 
@@ -163,10 +163,7 @@ impl NavigationState {
         let path = self.image_files[last_index].clone();
         self.current_file_path = Some(path.clone());
         self.current_rating = None;
-        debug!(
-            "Navigated to last image: {}",
-            crate::file_utils::format_path_for_log(&path)
-        );
+        debug!("Navigated to last image: {}", path.format_for_log());
         Ok(())
     }
 
