@@ -60,6 +60,20 @@ pub fn set_error_with_prefix(ui: &crate::AppWindow, prefix: &str, error: String)
         .set_error_message(error_message.into());
 }
 
+/// Sets error message in the UI from a background thread.
+///
+/// Uses invoke_from_event_loop to safely update UI from non-UI threads.
+pub fn set_ui_error(ui_handle: &slint::Weak<crate::AppWindow>, message: impl Into<String>) {
+    let message: String = message.into();
+    let ui_handle = ui_handle.clone();
+    let _ = slint::invoke_from_event_loop(move || {
+        if let Some(ui) = ui_handle.upgrade() {
+            ui.global::<crate::ViewerState>()
+                .set_error_message(message.into());
+        }
+    });
+}
+
 /// Sets all rating-related properties at once.
 ///
 /// Groups: current-rating, rating-in-progress

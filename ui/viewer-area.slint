@@ -182,6 +182,7 @@ export component ViewerArea inherits Rectangle {
         }
         copy-clicked => {
             debug("Menu: Copy");
+            Logic.copy-image();
             ui-timer-trigger = !ui-timer-trigger;
         }
         delete-clicked => {

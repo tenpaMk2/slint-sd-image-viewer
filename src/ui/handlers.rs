@@ -3,7 +3,7 @@
 //! Sets up all Logic callbacks (select_image, next_image, prev_image, etc.)
 //! using the appropriate threading model for each operation type.
 
-use crate::services::{AutoReloadService, NavigationService, RatingService};
+use crate::services::{AutoReloadService, ClipboardService, NavigationService, RatingService};
 use crate::state::AppState;
 use crate::ui::image_display::load_and_display_image;
 use rfd::AsyncFileDialog;
@@ -295,6 +295,46 @@ fn setup_rating_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     }
 }
 
+/// Sets up the clipboard handler for copying files.
+fn setup_clipboard_handler(ui: &crate::AppWindow, app_state: &AppState) {
+    let clipboard_service = Arc::new(ClipboardService::new());
+
+    ui.global::<crate::Logic>().on_copy_image({
+        let ui_handle = ui.as_weak();
+        let clipboard_service = clipboard_service.clone();
+        let navigation = app_state.navigation.clone();
+
+        move || {
+            let clipboard_service = clipboard_service.clone();
+            let navigation = navigation.clone();
+            let ui_handle = ui_handle.clone();
+
+            rayon::spawn(move || {
+                // Get current file path
+                let current_path = {
+                    let nav = navigation.lock().unwrap();
+                    nav.current_path()
+                };
+
+                if let Some(path) = current_path {
+                    let paths = vec![path];
+                    match clipboard_service.copy_files(paths) {
+                        Ok(_) => {
+                            log::info!("File copied to clipboard successfully");
+                        }
+                        Err(e) => {
+                            log::error!("Failed to copy file to clipboard: {}", e);
+                            crate::ui::set_ui_error(&ui_handle, format!("Failed to copy: {}", e));
+                        }
+                    }
+                } else {
+                    log::warn!("No file to copy");
+                }
+            });
+        }
+    });
+}
+
 /// Sets up all UI event handlers for the application.
 ///
 /// Takes the UI handle and shared application state, then registers
@@ -304,4 +344,5 @@ pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
     setup_navigation_handlers(ui, &app_state);
     setup_auto_reload_handlers(ui, &app_state);
     setup_rating_handlers(ui, &app_state);
+    setup_clipboard_handler(ui, &app_state);
 }
