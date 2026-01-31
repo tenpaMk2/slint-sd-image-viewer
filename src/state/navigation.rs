@@ -148,6 +148,11 @@ impl NavigationState {
         }
     }
 
+    /// Returns the current directory path.
+    pub fn get_current_directory(&self) -> Option<PathBuf> {
+        self.current_directory.clone()
+    }
+
     /// Navigates to the last image in the list.
     pub fn navigate_to_last(&mut self) -> Result<(), NavigationError> {
         if self.image_files.is_empty() {

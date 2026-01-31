@@ -4,13 +4,11 @@
 //! using the appropriate threading model for each operation type.
 
 use crate::services::{AutoReloadService, NavigationService, RatingService};
-use crate::ui::image_display::load_and_display_image;
 use crate::state::AppState;
-use log::warn;
+use crate::ui::image_display::load_and_display_image;
 use rfd::AsyncFileDialog;
-use slint::{ComponentHandle, Timer, TimerMode};
+use slint::ComponentHandle;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 /// Sets an error message in the UI.
 fn set_error_message(ui_handle: &slint::Weak<crate::AppWindow>, message: String) {
@@ -63,10 +61,7 @@ fn create_rating_handler(
 
 /// Sets up the file selection handler.
 fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
-    let navigation_service = Arc::new(NavigationService::new(
-        app_state.navigation.clone(),
-        app_state.image_cache.clone(),
-    ));
+    let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
 
     ui.global::<crate::Logic>().on_select_image({
         let ui_handle = ui.as_weak();
@@ -119,20 +114,17 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
 
 /// Sets up the navigation handlers (next and previous image).
 fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
-    let navigation_service = Arc::new(NavigationService::new(
-        app_state.navigation.clone(),
-        app_state.image_cache.clone(),
-    ));
+    let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
 
     ui.global::<crate::Logic>().on_next_image({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
-        let timer_ref = app_state.auto_reload_timer.clone();
+        let watcher_ref = app_state.auto_reload_watcher.clone();
         let nav_service = navigation_service.clone();
         move || {
             // Stop auto-reload on manual navigation
-            stop_auto_reload_internal(&ui_handle, &timer_ref);
+            stop_auto_reload_internal(&ui_handle, &watcher_ref);
 
             let result = nav_service.next();
 
@@ -157,11 +149,11 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
-        let timer_ref = app_state.auto_reload_timer.clone();
+        let watcher_ref = app_state.auto_reload_watcher.clone();
         let nav_service = navigation_service.clone();
         move || {
             // Stop auto-reload on manual navigation
-            stop_auto_reload_internal(&ui_handle, &timer_ref);
+            stop_auto_reload_internal(&ui_handle, &watcher_ref);
 
             let result = nav_service.previous();
 
@@ -183,14 +175,13 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     });
 }
 
-/// Internal helper to stop the auto-reload timer.
+/// Internal helper to stop the auto-reload watcher.
 fn stop_auto_reload_internal(
     ui_handle: &slint::Weak<crate::AppWindow>,
-    timer_ref: &Arc<Mutex<Option<Timer>>>,
+    watcher_ref: &Arc<Mutex<Option<notify::poll::PollWatcher>>>,
 ) {
-    if let Ok(mut timer_lock) = timer_ref.lock() {
-        if let Some(timer) = timer_lock.take() {
-            timer.stop();
+    if let Ok(mut watcher_lock) = watcher_ref.lock() {
+        if watcher_lock.take().is_some() {
             if let Some(ui) = ui_handle.upgrade() {
                 ui.global::<crate::ViewerState>()
                     .set_auto_reload_active(false);
@@ -201,17 +192,14 @@ fn stop_auto_reload_internal(
 
 /// Sets up the auto-reload handlers.
 fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
-    let navigation_service = NavigationService::new(
-        app_state.navigation.clone(),
-        app_state.image_cache.clone(),
-    );
+    let navigation_service = NavigationService::new(app_state.navigation.clone());
     let reload_service = Arc::new(AutoReloadService::new(navigation_service));
 
     ui.global::<crate::Logic>().on_start_auto_reload({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
-        let timer_ref = app_state.auto_reload_timer.clone();
+        let watcher_ref = app_state.auto_reload_watcher.clone();
         let reload_service = reload_service.clone();
 
         move || {
@@ -237,66 +225,45 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                 }
             }
 
-            // Set up timer for periodic reload
-            let timer = Timer::default();
+            // Start watching for changes
             let ui_weak = ui_handle.clone();
             let state_clone = state.clone();
             let cache_clone = cache.clone();
-            let reload_service_clone = reload_service.clone();
 
-            timer.start(TimerMode::Repeated, Duration::from_secs(2), move || {
-                // Run reload check in background thread
-                let ui_weak_clone = ui_weak.clone();
-                let state_for_thread = state_clone.clone();
-                let cache_for_thread = cache_clone.clone();
-                let reload_service_for_thread = reload_service_clone.clone();
-
-                rayon::spawn(move || {
-                    // Check for updates (blocking I/O)
-                    let check_result = reload_service_for_thread.check_for_updates();
-
-                    match check_result {
-                        Ok(result) if result.has_changes => {
-                            if let Some(path) = result.new_image_path {
-                                // Return to UI thread to load image
-                                let _ = slint::invoke_from_event_loop(move || {
-                                    load_and_display_image(
-                                        ui_weak_clone,
-                                        path,
-                                        "Auto-reload failed".to_string(),
-                                        state_for_thread,
-                                        cache_for_thread,
-                                    );
-                                });
-                            }
-                        }
-                        Ok(_) => {
-                            // No changes, do nothing
-                        }
-                        Err(e) => {
-                            warn!("Failed to check for updates: {}", e);
-                        }
-                    }
-                });
+            let watcher_result = reload_service.start_watching(state_clone.clone(), move |path| {
+                load_and_display_image(
+                    ui_weak.clone(),
+                    path,
+                    "Auto-reload failed".to_string(),
+                    state_clone.clone(),
+                    cache_clone.clone(),
+                );
             });
 
-            if let Ok(mut timer_lock) = timer_ref.lock() {
-                *timer_lock = Some(timer);
-            }
+            match watcher_result {
+                Ok(watcher) => {
+                    if let Ok(mut watcher_lock) = watcher_ref.lock() {
+                        *watcher_lock = Some(watcher);
+                    }
 
-            if let Some(ui) = ui_handle.upgrade() {
-                ui.global::<crate::ViewerState>()
-                    .set_auto_reload_active(true);
+                    if let Some(ui) = ui_handle.upgrade() {
+                        ui.global::<crate::ViewerState>()
+                            .set_auto_reload_active(true);
+                    }
+                }
+                Err(e) => {
+                    set_error_message(&ui_handle, format!("Failed to start auto-reload: {}", e));
+                }
             }
         }
     });
 
     ui.global::<crate::Logic>().on_stop_auto_reload({
         let ui_handle = ui.as_weak();
-        let timer_ref = app_state.auto_reload_timer.clone();
+        let watcher_ref = app_state.auto_reload_watcher.clone();
 
         move || {
-            stop_auto_reload_internal(&ui_handle, &timer_ref);
+            stop_auto_reload_internal(&ui_handle, &watcher_ref);
         }
     });
 }
@@ -309,11 +276,7 @@ fn setup_rating_handlers(ui: &crate::AppWindow, app_state: &AppState) {
     ));
 
     for rating in 0..=5 {
-        let handler = create_rating_handler(
-            ui.as_weak(),
-            rating_service.clone(),
-            rating,
-        );
+        let handler = create_rating_handler(ui.as_weak(), rating_service.clone(), rating);
 
         match rating {
             0 => ui.global::<crate::Logic>().on_rate_0(handler),
