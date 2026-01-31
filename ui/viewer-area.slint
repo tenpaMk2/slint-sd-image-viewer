@@ -12,21 +12,21 @@ import { LeftRightNavigation } from "components/left-right-navigation.slint";
 export component ViewerArea inherits Rectangle {
     property <bool> image-loaded: ViewerState.image-loaded;
     property <bool> ui-active: ViewerState.ui-active;
+    property <bool> ui-timer-trigger: ViewerState.ui-timer-trigger;
 
     ui-timer := Timer {
         interval: 3s;
         triggered => {
             debug("UI timeout");
-            ViewerState.ui-active = false;
+            ui-active = false;
             self.stop();
         }
     }
 
-    // Watch for ui-active changes to restart timer
-    changed ui-active => {
-        if ui-active {
-            ui-timer.restart();
-        }
+    // Watch for ui-timer-trigger changes to restart timer
+    changed ui-timer-trigger => {
+        ui-active = true;
+        ui-timer.restart();
     }
 
     if image-loaded: Rectangle {
@@ -54,7 +54,7 @@ export component ViewerArea inherits Rectangle {
         TouchArea {
             clicked => {
                 debug("clicked");
-                ViewerState.ui-active = true;
+                ui-timer-trigger = !ui-timer-trigger;
             }
             double-clicked => {
                 debug("double-clicked");
@@ -78,7 +78,7 @@ export component ViewerArea inherits Rectangle {
             x: 0;
             clicked => {
                 debug("left clicked");
-                ViewerState.ui-active = true;
+                ui-timer-trigger = !ui-timer-trigger;
             }
         }
 
@@ -87,7 +87,7 @@ export component ViewerArea inherits Rectangle {
             x: root.width - 5rem;
             clicked => {
                 debug("right clicked");
-                ViewerState.ui-active = true;
+                ui-timer-trigger = !ui-timer-trigger;
             }
         }
 
