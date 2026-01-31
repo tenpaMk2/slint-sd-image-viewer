@@ -31,10 +31,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let level = level_style.render();
             let reset = level_style.render_reset();
 
+            // JSTタイムスタンプ（時刻のみ）
+            let timestamp = chrono::Local::now().format("%H:%M:%S");
+
             writeln!(
                 buf,
                 "[{} {}{}{} {}] {}",
-                buf.timestamp(),
+                timestamp,
                 level,
                 record.level(),
                 reset,
