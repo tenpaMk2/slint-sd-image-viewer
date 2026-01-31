@@ -2,6 +2,7 @@ import { Slider } from "slider.slint";
 import { TopShortcut } from "top-shortcut.slint";
 import { ViewerArea } from "viewer-area.slint";
 import { InfoArea } from "info-area.slint";
+import { InfoState } from "info-state.slint";
 export { Logic } from "logic.slint";
 export { ViewerState } from "viewer-state.slint";
 
@@ -10,7 +11,12 @@ export component AppWindow inherits Window {
     property <length> initial-height: 720px;
 
     in-out property <string> file-list;
-    in-out property <float> view-width-ratio: 0.7;
+    in-out property <float> view-width-ratio: InfoState.info-active ? InfoState.saved-width-ratio : 1.0;
+
+    animate view-width-ratio {
+        duration: 300ms;
+        easing: ease-in-out;
+    }
 
     preferred-width: initial-width;
     preferred-height: initial-height;
@@ -46,14 +52,16 @@ export component AppWindow inherits Window {
 
     slider := Slider {
         x: l.width;
+        visible: InfoState.info-active;
         moved(x) => {
-            view-width-ratio += (x - (slider.width / 2)) / parent.width;
+            InfoState.saved-width-ratio += (x - (slider.width / 2)) / parent.width;
         }
     }
 
     Rectangle {
         x: l.width + slider.width;
         width: parent.width - (l.width + slider.width);
+        visible: InfoState.info-active;
         clip: true;
 
         InfoArea { }

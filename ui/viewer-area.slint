@@ -5,7 +5,7 @@ import {
 } from "std-widgets.slint";
 import { Logic } from "logic.slint";
 import { ViewerState } from "viewer-state.slint";
-import { InfoArea } from "info-state.slint";
+import { InfoState } from "info-state.slint";
 import { UiButton } from "components/ui-button.slint";
 import { LeftRightNavigation } from "components/left-right-navigation.slint";
 
@@ -116,10 +116,10 @@ export component ViewerArea inherits Rectangle {
                     spacing: 0.5rem;
                     UiButton {
                         icon: @image-url("icons/lucide-info.svg");
-                        active: InfoArea.info-active;
+                        active: InfoState.info-active;
                         clicked => {
                             debug("Toggle info area");
-                            InfoArea.info-active = !InfoArea.info-active;
+                            InfoState.info-active = !InfoState.info-active;
                         }
                     }
 
