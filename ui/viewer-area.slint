@@ -13,6 +13,8 @@ export component ViewerArea inherits Rectangle {
     property <bool> image-loaded: ViewerState.image-loaded;
     property <bool> ui-active: ViewerState.ui-active;
     property <bool> ui-timer-trigger: ViewerState.ui-timer-trigger;
+    property <length> last-mouse-x: 0px;
+    property <length> last-mouse-y: 0px;
 
     ui-timer := Timer {
         interval: 3s;
@@ -51,7 +53,20 @@ export component ViewerArea inherits Rectangle {
             }
         }
 
-        TouchArea {
+        mouse-poll-timer := Timer {
+            interval: 100ms;
+            running: true;
+            triggered => {
+                if touch-area.mouse-x != last-mouse-x || touch-area.mouse-y != last-mouse-y {
+                    last-mouse-x = touch-area.mouse-x;
+                    last-mouse-y = touch-area.mouse-y;
+                    ui-timer-trigger = !ui-timer-trigger;
+                    debug("Mouse moved:", last-mouse-x, last-mouse-y);
+                }
+            }
+        }
+
+        touch-area := TouchArea {
             clicked => {
                 debug("clicked");
                 ui-timer-trigger = !ui-timer-trigger;
