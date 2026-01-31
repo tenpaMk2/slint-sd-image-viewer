@@ -81,7 +81,7 @@ impl AutoReloadService {
                         match navigation_service.rescan_directory() {
                             Ok(_) => match navigation_service.navigate_to_last() {
                                 Ok(path) => {
-                                    debug!("Navigating to last image: {:?}", path);
+                                    debug!("Navigating to last image: {}", crate::file_utils::format_path_for_log(&path));
                                     let on_change_clone = on_change_for_thread.clone();
                                     let _ = slint::invoke_from_event_loop(move || {
                                         on_change_clone(path);

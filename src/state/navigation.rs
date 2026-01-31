@@ -163,7 +163,10 @@ impl NavigationState {
         let path = self.image_files[last_index].clone();
         self.current_file_path = Some(path.clone());
         self.current_rating = None;
-        debug!("Navigated to last image: {:?}", path);
+        debug!(
+            "Navigated to last image: {}",
+            crate::file_utils::format_path_for_log(&path)
+        );
         Ok(())
     }
 
