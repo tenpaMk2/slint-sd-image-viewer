@@ -11,12 +11,7 @@ export component AppWindow inherits Window {
     property <length> initial-height: 720px;
 
     in-out property <string> file-list;
-    in-out property <float> view-width-ratio: InfoState.info-active ? InfoState.saved-width-ratio : 1.0;
-
-    animate view-width-ratio {
-        duration: 300ms;
-        easing: ease-in-out;
-    }
+    in-out property <float> viewer-width-ratio: InfoState.info-active ? InfoState.saved-width-ratio : 1.0;
 
     preferred-width: initial-width;
     preferred-height: initial-height;
@@ -44,7 +39,7 @@ export component AppWindow inherits Window {
 
     l := Rectangle {
         x: 0;
-        width: view-width-ratio * parent.width;
+        width: viewer-width-ratio * parent.width;
         clip: true;
 
         ViewerArea { }
