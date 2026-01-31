@@ -82,11 +82,10 @@ impl NavigationState {
     /// Scans the parent directory and sets the current file path to the selected file.
     pub fn update_directory(&mut self, file_path: PathBuf) -> Result<(), NavigationError> {
         let start = std::time::Instant::now();
-        debug!("Starting directory update for: {:?}", file_path);
-
         let parent = file_path.parent().ok_or_else(|| {
             NavigationError::DirectoryScanFailed("No parent directory".to_string())
         })?;
+        debug!("Starting directory update for: {:?}", parent);
 
         self.current_directory = Some(parent.to_path_buf());
 
@@ -99,8 +98,8 @@ impl NavigationState {
         self.current_rating = None;
 
         debug!(
-            "Completed directory update for {:?} in {:?}",
-            file_path,
+            "Completed directory update for: {:?} in {:?}",
+            parent,
             start.elapsed()
         );
         Ok(())
