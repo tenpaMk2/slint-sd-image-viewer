@@ -14,6 +14,8 @@ pub struct LoadedImageData {
     pub height: u32,
     pub rating: Option<u8>,
     pub sd_parameters: Option<SdParameters>,
+    pub file_name: String,
+    pub file_size_formatted: String,
 }
 
 /// Load image and metadata from a file path.
@@ -91,17 +93,46 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
         }
     };
 
+    // Extract file name
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Unknown")
+        .to_string();
+
+    // Get file size and format with commas
+    let file_size_bytes = file_bytes.len() as u64;
+    let file_size_formatted = format_file_size(file_size_bytes);
+
     Ok(LoadedImageData {
         data,
         width,
         height,
         rating,
         sd_parameters,
+        file_name,
+        file_size_formatted,
     })
 }
 
+/// Format file size with thousand separators
+fn format_file_size(size: u64) -> String {
+    let size_str = size.to_string();
+    let mut result = String::new();
+    let chars: Vec<char> = size_str.chars().collect();
+
+    for (i, ch) in chars.iter().enumerate() {
+        if i > 0 && (chars.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(*ch);
+    }
+
+    format!("{} bytes", result)
+}
+
 /// Convert RGB8 data to Slint Image (UIスレッドで軽い処理のみ)
-pub fn create_slint_image(data: Vec<u8>, width: u32, height: u32) -> Image {
-    let buffer = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(&data, width, height);
+pub fn create_slint_image(data: &[u8], width: u32, height: u32) -> Image {
+    let buffer = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(data, width, height);
     Image::from_rgb8(buffer)
 }

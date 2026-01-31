@@ -17,28 +17,11 @@ use std::sync::{Arc, Mutex};
 /// Updates the UI with successfully loaded image data.
 fn update_ui_with_image(
     ui: &crate::AppWindow,
-    loaded: image_loader::LoadedImageData,
-    state: Arc<Mutex<NavigationState>>,
-    cache: Arc<Mutex<ImageCache>>,
-    path: PathBuf,
+    loaded: &image_loader::LoadedImageData,
+    state: &Arc<Mutex<NavigationState>>,
 ) {
-    // Store RGB8 data in cache before converting to slint::Image
-    if let Ok(mut cache) = cache.lock() {
-        cache.put(path.clone(), loaded.clone());
-    }
-
-    let image = image_loader::create_slint_image(loaded.data, loaded.width, loaded.height);
-
-    update_ui_state(
-        ui,
-        image,
-        loaded.rating,
-        loaded.sd_parameters.as_ref(),
-        &state,
-    );
-
-    // Trigger preload of adjacent images
-    preload_adjacent_images(state, cache);
+    let image = image_loader::create_slint_image(&loaded.data, loaded.width, loaded.height);
+    update_ui_state(ui, image, loaded, state);
 }
 
 /// Updates the UI with an error message.
@@ -53,8 +36,7 @@ fn update_ui_with_error(ui: &crate::AppWindow, error_prefix: &str, error: String
 fn update_ui_state(
     ui: &crate::AppWindow,
     image: slint::Image,
-    rating: Option<u8>,
-    sd_parameters: Option<&SdParameters>,
+    loaded: &image_loader::LoadedImageData,
     state: &Arc<Mutex<NavigationState>>,
 ) {
     ui.global::<crate::ViewerState>().set_dynamic_image(image);
@@ -62,12 +44,22 @@ fn update_ui_state(
     ui.global::<crate::ViewerState>()
         .set_error_message("".into());
 
-    let rating_i32 = rating.map(|r| r as i32).unwrap_or(-1);
+    let rating_i32 = loaded.rating.map(|r| r as i32).unwrap_or(-1);
     ui.global::<crate::ViewerState>()
         .set_current_rating(rating_i32);
 
+    // Set basic file information
+    ui.global::<crate::ViewerState>()
+        .set_current_filename(loaded.file_name.as_str().into());
+    ui.global::<crate::ViewerState>()
+        .set_file_size_formatted(loaded.file_size_formatted.as_str().into());
+    ui.global::<crate::ViewerState>()
+        .set_image_width(loaded.width as i32);
+    ui.global::<crate::ViewerState>()
+        .set_image_height(loaded.height as i32);
+
     // Update SD parameters
-    if let Some(params) = sd_parameters {
+    if let Some(params) = &loaded.sd_parameters {
         // Format positive tags
         let positive_prompt = format_tags(&params.positive_sd_tags);
         ui.global::<crate::ViewerState>()
@@ -93,7 +85,7 @@ fn update_ui_state(
     }
 
     if let Ok(mut nav_state) = state.lock() {
-        nav_state.set_current_rating(rating);
+        nav_state.set_current_rating(loaded.rating);
     }
 }
 
@@ -170,18 +162,12 @@ pub fn load_and_display_image(
         // Cache hit - display immediately
         if let Some(ui) = ui.upgrade() {
             let image = image_loader::create_slint_image(
-                cached_image.data,
+                &cached_image.data,
                 cached_image.width,
                 cached_image.height,
             );
 
-            update_ui_state(
-                &ui,
-                image,
-                cached_image.rating,
-                cached_image.sd_parameters.as_ref(),
-                &state,
-            );
+            update_ui_state(&ui, image, &cached_image, &state);
 
             // Trigger preload even on cache hit
             preload_adjacent_images(state, cache);
@@ -191,6 +177,7 @@ pub fn load_and_display_image(
 
     // Cache miss - load from disk
     let cache_clone = cache.clone();
+    let state_clone = state.clone();
     rayon::spawn(move || {
         let result = image_loader::load_image_with_metadata(&path)
             .map_err(|e| format!("Failed to load image: {}", e));
@@ -198,7 +185,22 @@ pub fn load_and_display_image(
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui.upgrade() {
                 match result {
-                    Ok(loaded) => update_ui_with_image(&ui, loaded, state, cache_clone, path),
+                    Ok(loaded) => {
+                        // Store in cache and get reference
+                        let cached_ref = if let Ok(mut cache) = cache_clone.lock() {
+                            cache.put(path.clone(), loaded);
+                            cache.get(&path)
+                        } else {
+                            None
+                        };
+
+                        if let Some(cached) = cached_ref {
+                            update_ui_with_image(&ui, &cached, &state_clone);
+                        }
+
+                        // Trigger preload after successful display
+                        preload_adjacent_images(state_clone, cache_clone);
+                    }
                     Err(error) => update_ui_with_error(&ui, &error_prefix, error),
                 }
             }

@@ -10,4 +10,10 @@ export global ViewerState {
     in-out property <string> positive-prompt: "";
     in-out property <string> negative-prompt: "";
     in-out property <[{key: string, value: string}]> sd-parameters: [];
+    
+    // Basic file information
+    in-out property <string> current-filename: "";
+    in-out property <string> file-size-formatted: "";
+    in-out property <int> image-width: 0;
+    in-out property <int> image-height: 0;
 }

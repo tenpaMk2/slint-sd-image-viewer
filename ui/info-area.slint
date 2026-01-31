@@ -18,9 +18,12 @@ export component InfoArea inherits ScrollView {
 
             Table {
                 data: [
-                    { key: @tr("Filename"), value: "aaa-afewfajewiaofjew-fewafeawfewa-hoge.png" },
-                    { key: @tr("Size"), value: "1.2 MB" },
-                    { key: @tr("Resolution"), value: "1156 x 864" }
+                    { key: @tr("Filename"), value: ViewerState.current-filename },
+                    { key: @tr("Size"), value: ViewerState.file-size-formatted },
+                    {
+                        key: @tr("Resolution"),
+                        value: ViewerState.image-width + " x " + ViewerState.image-height
+                    }
                 ];
             }
         }
