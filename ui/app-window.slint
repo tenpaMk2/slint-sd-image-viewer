@@ -1,13 +1,3 @@
-import {
-    Button,
-    VerticalBox,
-    HorizontalBox,
-    AboutSlint,
-    TabWidget,
-    StyleMetrics,
-    Palette,
-    LineEdit,
-} from "std-widgets.slint";
 import { Slider } from "slider.slint";
 import { TopShortcut } from "top-shortcut.slint";
 import { ViewerArea } from "viewer-area.slint";
@@ -22,8 +12,6 @@ export component AppWindow inherits Window {
     in-out property <string> file-list;
     in-out property <float> view-width-ratio: 0.7;
 
-    // width: 760px;
-    // preferred-width: 100%;
     preferred-width: initial-width;
     preferred-height: initial-height;
 
@@ -50,19 +38,26 @@ export component AppWindow inherits Window {
         }
     }
 
-    HorizontalLayout {
-        ViewerArea {
-            horizontal-stretch: view-width-ratio;
-        }
+    l := Rectangle {
+        x: 0;
+        width: view-width-ratio * parent.width;
+        clip: true;
 
-        slider := Slider {
-            moved(x) => {
-                view-width-ratio += (x - (slider.width / 2)) / root.width;
-            }
-        }
+        ViewerArea { }
+    }
 
-        InfoArea {
-            horizontal-stretch: 1.0 - view-width-ratio;
+    slider := Slider {
+        x: l.width;
+        moved(x) => {
+            view-width-ratio += (x - (slider.width / 2)) / parent.width;
         }
+    }
+
+    Rectangle {
+        x: l.width + slider.width;
+        width: parent.width - (l.width + slider.width);
+        clip: true;
+
+        InfoArea { }
     }
 }

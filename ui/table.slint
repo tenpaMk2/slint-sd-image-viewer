@@ -30,7 +30,6 @@ component TableRow inherits Rectangle {
 }
 
 export component Table inherits VerticalLayout {
-    width: 100%;
     in property <[{key: string, value: string}]> data: [];
 
     for r[index] in data: TableRow {

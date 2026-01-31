@@ -9,15 +9,13 @@ import { InfoArea } from "info-state.slint";
 import { UiButton } from "components/ui-button.slint";
 import { LeftRightNavigation } from "components/left-right-navigation.slint";
 
-export component ViewerArea inherits VerticalLayout {
+export component ViewerArea inherits Rectangle {
     property <bool> image-loaded: ViewerState.image-loaded;
     property <bool> ui-active: true;
 
-    alignment: center;
-
     if image-loaded: Rectangle {
         background: Palette.alternate-background;
-        height: 100%;
+        clip: true;
 
         ContextMenuArea {
             Menu {
@@ -61,8 +59,10 @@ export component ViewerArea inherits VerticalLayout {
         }
 
         Image {
-            width: root.width;
-            height: root.height;
+            width: 100%;
+            height: 100%;
+            preferred-width: 0;
+            preferred-height: 0;
             image-fit: contain;
             source: ViewerState.dynamic-image;
         }
@@ -89,7 +89,6 @@ export component ViewerArea inherits VerticalLayout {
 
         if ui-active: Rectangle {
             y: 0;
-            width: 100%;
             height: 3rem;
             background: Palette.background.transparentize(0.3);
 
@@ -132,15 +131,15 @@ export component ViewerArea inherits VerticalLayout {
         }
     }
 
-    if !image-loaded: HorizontalLayout {
-        alignment: center;
+    if !image-loaded: 
         Button {
-            text: "Open image";
-            width: 20rem;
-            height: 4rem;
-            clicked => {
-                Logic.select-image();
-            }
+        preferred-width: 20rem;
+        preferred-height: 6rem;
+
+        text: "Open image";
+
+        clicked => {
+            Logic.select-image();
         }
     }
 }
