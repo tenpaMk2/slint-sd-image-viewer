@@ -16,6 +16,8 @@ pub struct LoadedImageData {
     pub sd_parameters: Option<SdParameters>,
     pub file_name: String,
     pub file_size_formatted: String,
+    pub created_date: String,
+    pub modified_date: String,
 }
 
 /// Load image and metadata from a file path.
@@ -104,6 +106,31 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
     let file_size_bytes = file_bytes.len() as u64;
     let file_size_formatted = format_file_size(file_size_bytes);
 
+    // Get file timestamps
+    let (created_date, modified_date) = if let Ok(metadata) = std::fs::metadata(path) {
+        let created = metadata
+            .created()
+            .ok()
+            .map(|time| {
+                let datetime: chrono::DateTime<chrono::Local> = time.into();
+                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+            })
+            .unwrap_or_else(|| "N/A".to_string());
+
+        let modified = metadata
+            .modified()
+            .ok()
+            .map(|time| {
+                let datetime: chrono::DateTime<chrono::Local> = time.into();
+                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+            })
+            .unwrap_or_else(|| "N/A".to_string());
+
+        (created, modified)
+    } else {
+        ("N/A".to_string(), "N/A".to_string())
+    };
+
     Ok(LoadedImageData {
         data,
         width,
@@ -112,6 +139,8 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
         sd_parameters,
         file_name,
         file_size_formatted,
+        created_date,
+        modified_date,
     })
 }
 

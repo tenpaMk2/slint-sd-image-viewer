@@ -9,7 +9,6 @@ use crate::{
     metadata::{SdParameters, SdTag},
     state::NavigationState,
 };
-use log::error;
 use slint::ComponentHandle;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -26,10 +25,7 @@ fn update_ui_with_image(
 
 /// Updates the UI with an error message.
 fn update_ui_with_error(ui: &crate::AppWindow, error_prefix: &str, error: String) {
-    let error_message = format!("{}: {}", error_prefix, error);
-    error!("{}", error_message);
-    ui.global::<crate::ViewerState>()
-        .set_error_message(error_message.into());
+    crate::ui::set_error_with_prefix(ui, error_prefix, error);
 }
 
 /// Updates the UI state with image and rating information.
@@ -45,43 +41,46 @@ fn update_ui_state(
         .set_error_message("".into());
 
     let rating_i32 = loaded.rating.map(|r| r as i32).unwrap_or(-1);
-    ui.global::<crate::ViewerState>()
-        .set_current_rating(rating_i32);
+    crate::ui::set_rating_info(ui, rating_i32, false);
+
+    // Set navigation information
+    if let Ok(nav_state) = state.lock() {
+        let total = nav_state.image_count() as i32;
+        let current = if let Some(path) = nav_state.current_path() {
+            (nav_state.find_file_index(&path) + 1) as i32 // 1-based index
+        } else {
+            -1
+        };
+        let auto_reload = ui.global::<crate::ViewerState>().get_auto_reload_active();
+        crate::ui::set_navigation_info(ui, current, total, auto_reload);
+    }
 
     // Set basic file information
-    ui.global::<crate::ViewerState>()
-        .set_current_filename(loaded.file_name.as_str().into());
-    ui.global::<crate::ViewerState>()
-        .set_file_size_formatted(loaded.file_size_formatted.as_str().into());
-    ui.global::<crate::ViewerState>()
-        .set_image_width(loaded.width as i32);
-    ui.global::<crate::ViewerState>()
-        .set_image_height(loaded.height as i32);
+    crate::ui::set_file_info(
+        ui,
+        &loaded.file_name,
+        &loaded.file_size_formatted,
+        loaded.width,
+        loaded.height,
+        &loaded.created_date,
+        &loaded.modified_date,
+    );
 
     // Update SD parameters
     if let Some(params) = &loaded.sd_parameters {
         // Format positive tags
         let positive_prompt = format_tags(&params.positive_sd_tags);
-        ui.global::<crate::ViewerState>()
-            .set_positive_prompt(positive_prompt.into());
 
         // Format negative tags
         let negative_prompt = format_tags(&params.negative_sd_tags);
-        ui.global::<crate::ViewerState>()
-            .set_negative_prompt(negative_prompt.into());
 
         // Format other parameters as key-value pairs
         let sd_params = format_sd_parameters(params);
-        ui.global::<crate::ViewerState>()
-            .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(sd_params)));
+
+        crate::ui::set_prompts_and_parameters(ui, &positive_prompt, &negative_prompt, sd_params);
     } else {
         // Clear SD parameters
-        ui.global::<crate::ViewerState>()
-            .set_positive_prompt("".into());
-        ui.global::<crate::ViewerState>()
-            .set_negative_prompt("".into());
-        ui.global::<crate::ViewerState>()
-            .set_sd_parameters(slint::ModelRc::new(slint::VecModel::from(vec![])));
+        crate::ui::clear_prompts_and_parameters(ui);
     }
 
     if let Ok(mut nav_state) = state.lock() {

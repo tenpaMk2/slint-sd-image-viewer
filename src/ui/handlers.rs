@@ -10,14 +10,6 @@ use rfd::AsyncFileDialog;
 use slint::ComponentHandle;
 use std::sync::{Arc, Mutex};
 
-/// Sets an error message in the UI.
-fn set_error_message(ui_handle: &slint::Weak<crate::AppWindow>, message: String) {
-    if let Some(ui) = ui_handle.upgrade() {
-        ui.global::<crate::ViewerState>()
-            .set_error_message(message.into());
-    }
-}
-
 /// Creates a rating handler closure for the specified rating value.
 fn create_rating_handler(
     ui_handle: slint::Weak<crate::AppWindow>,
@@ -26,8 +18,7 @@ fn create_rating_handler(
 ) -> impl Fn() {
     move || {
         if let Some(ui) = ui_handle.upgrade() {
-            ui.global::<crate::ViewerState>()
-                .set_rating_in_progress(true);
+            crate::ui::set_rating_info(&ui, -1, true);
         }
 
         let ui_handle_clone = ui_handle.clone();
@@ -38,13 +29,9 @@ fn create_rating_handler(
 
             let _ = slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_handle_clone.upgrade() {
-                    ui.global::<crate::ViewerState>()
-                        .set_rating_in_progress(false);
-
                     match result {
                         Ok(success) => {
-                            ui.global::<crate::ViewerState>()
-                                .set_current_rating(success.rating as i32);
+                            crate::ui::set_rating_info(&ui, success.rating as i32, false);
                             ui.global::<crate::ViewerState>()
                                 .set_error_message("".into());
                         }
@@ -100,10 +87,13 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
 
                     if let Err(e) = result {
                         let _ = slint::invoke_from_event_loop(move || {
-                            set_error_message(
-                                &ui_handle_clone,
-                                format!("Failed to update directory: {}", e),
-                            );
+                            if let Some(ui) = ui_handle_clone.upgrade() {
+                                crate::ui::set_error_with_prefix(
+                                    &ui,
+                                    "Failed to update directory",
+                                    e.to_string(),
+                                );
+                            }
                         });
                     }
                 });
@@ -139,7 +129,9 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     );
                 }
                 Err(e) => {
-                    set_error_message(&ui_handle, format!("Navigation failed: {}", e));
+                    if let Some(ui) = ui_handle.upgrade() {
+                        crate::ui::set_error_with_prefix(&ui, "Navigation failed", e.to_string());
+                    }
                 }
             }
         }
@@ -168,7 +160,9 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     );
                 }
                 Err(e) => {
-                    set_error_message(&ui_handle, format!("Navigation failed: {}", e));
+                    if let Some(ui) = ui_handle.upgrade() {
+                        crate::ui::set_error_with_prefix(&ui, "Navigation failed", e.to_string());
+                    }
                 }
             }
         }
@@ -183,8 +177,9 @@ fn stop_auto_reload_internal(
     if let Ok(mut watcher_lock) = watcher_ref.lock() {
         if watcher_lock.take().is_some() {
             if let Some(ui) = ui_handle.upgrade() {
-                ui.global::<crate::ViewerState>()
-                    .set_auto_reload_active(false);
+                let current = ui.global::<crate::ViewerState>().get_current_index();
+                let total = ui.global::<crate::ViewerState>().get_total_index();
+                crate::ui::set_navigation_info(&ui, current, total, false);
             }
         }
     }
@@ -217,10 +212,13 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     );
                 }
                 Err(e) => {
-                    set_error_message(
-                        &ui_handle,
-                        format!("Failed to navigate to last image: {}", e),
-                    );
+                    if let Some(ui) = ui_handle.upgrade() {
+                        crate::ui::set_error_with_prefix(
+                            &ui,
+                            "Failed to navigate to last image",
+                            e.to_string(),
+                        );
+                    }
                     return;
                 }
             }
@@ -247,12 +245,19 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                     }
 
                     if let Some(ui) = ui_handle.upgrade() {
-                        ui.global::<crate::ViewerState>()
-                            .set_auto_reload_active(true);
+                        let current = ui.global::<crate::ViewerState>().get_current_index();
+                        let total = ui.global::<crate::ViewerState>().get_total_index();
+                        crate::ui::set_navigation_info(&ui, current, total, true);
                     }
                 }
                 Err(e) => {
-                    set_error_message(&ui_handle, format!("Failed to start auto-reload: {}", e));
+                    if let Some(ui) = ui_handle.upgrade() {
+                        crate::ui::set_error_with_prefix(
+                            &ui,
+                            "Failed to start auto-reload",
+                            e.to_string(),
+                        );
+                    }
                 }
             }
         }

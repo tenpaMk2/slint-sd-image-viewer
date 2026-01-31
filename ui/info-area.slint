@@ -23,7 +23,9 @@ export component InfoArea inherits ScrollView {
                     {
                         key: @tr("Resolution"),
                         value: ViewerState.image-width + " x " + ViewerState.image-height
-                    }
+                    },
+                    { key: @tr("Created"), value: ViewerState.file-created-date },
+                    { key: @tr("Modified"), value: ViewerState.file-modified-date }
                 ];
             }
         }

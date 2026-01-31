@@ -106,7 +106,7 @@ impl NavigationState {
     }
 
     /// Finds the index of a file in the image files list.
-    fn find_file_index(&self, file_path: &PathBuf) -> usize {
+    pub fn find_file_index(&self, file_path: &PathBuf) -> usize {
         self.image_files
             .iter()
             .position(|p| p == file_path)
