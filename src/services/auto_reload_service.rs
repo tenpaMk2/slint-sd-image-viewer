@@ -2,6 +2,7 @@
 //!
 //! Provides directory monitoring and change detection for auto-reload feature.
 
+use crate::config::SUPPORTED_IMAGE_EXTENSIONS;
 use crate::error::NavigationError;
 use crate::file_utils::PathExt;
 use crate::services::NavigationService;
@@ -27,8 +28,27 @@ fn handle_debounced_events<F>(
         return;
     }
 
-    debug!("Debounced file system events: {} events", events.len());
-    for event in &events {
+    // Filter out non-image files - we only care about supported image formats
+    let file_events: Vec<_> = events
+        .into_iter()
+        .filter(|event| {
+            event
+                .path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext_str| {
+                    SUPPORTED_IMAGE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str())
+                })
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if file_events.is_empty() {
+        return;
+    }
+
+    debug!("Debounced file system events: {} events", file_events.len());
+    for event in &file_events {
         debug!("  - {:?} for {}", event.kind, event.path.format_for_log());
     }
 
@@ -88,7 +108,7 @@ impl AutoReloadService {
         let notify_config = notify_debouncer_mini::notify::Config::default()
             .with_poll_interval(Duration::from_secs(2));
         let debouncer_config = Config::default()
-            .with_timeout(Duration::from_millis(800))
+            .with_timeout(Duration::from_millis(500))
             .with_notify_config(notify_config);
 
         let mut debouncer = new_debouncer_opt::<_, notify_debouncer_mini::notify::PollWatcher>(
