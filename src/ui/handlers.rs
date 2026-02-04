@@ -185,81 +185,105 @@ fn stop_auto_reload_internal(
     }
 }
 
+/// Internal helper to start the auto-reload watcher.
+fn start_auto_reload_internal(
+    ui_handle: &slint::Weak<crate::AppWindow>,
+    state: &Arc<Mutex<crate::state::NavigationState>>,
+    cache: &Arc<Mutex<crate::image_cache::ImageCache>>,
+    watcher_ref: &Arc<Mutex<Option<crate::state::AutoReloadDebouncer>>>,
+    navigation_service: &Arc<NavigationService>,
+    reload_service: &Arc<AutoReloadService>,
+) {
+    // First, rescan directory to get the latest file list
+    if let Err(e) = navigation_service.rescan_directory() {
+        if let Some(ui) = ui_handle.upgrade() {
+            crate::ui::set_error_with_prefix(&ui, "Failed to rescan directory", e.to_string());
+        }
+        return;
+    }
+
+    // Then navigate to the last image with the updated list
+    let result = reload_service.navigate_to_last();
+
+    match result {
+        Ok(path) => {
+            load_and_display_image(
+                ui_handle.clone(),
+                path,
+                "Failed to load last image".to_string(),
+                state.clone(),
+                cache.clone(),
+            );
+        }
+        Err(e) => {
+            if let Some(ui) = ui_handle.upgrade() {
+                crate::ui::set_error_with_prefix(
+                    &ui,
+                    "Failed to navigate to last image",
+                    e.to_string(),
+                );
+            }
+            return;
+        }
+    }
+
+    // Start watching for changes
+    let ui_weak = ui_handle.clone();
+    let state_clone = state.clone();
+    let cache_clone = cache.clone();
+
+    let watcher_result = reload_service.start_watching(state_clone.clone(), move |path| {
+        load_and_display_image(
+            ui_weak.clone(),
+            path,
+            "Auto-reload failed".to_string(),
+            state_clone.clone(),
+            cache_clone.clone(),
+        );
+    });
+
+    match watcher_result {
+        Ok(watcher) => {
+            if let Ok(mut watcher_lock) = watcher_ref.lock() {
+                *watcher_lock = Some(watcher);
+            }
+
+            if let Some(ui) = ui_handle.upgrade() {
+                let current = ui.global::<crate::ViewerState>().get_current_index();
+                let total = ui.global::<crate::ViewerState>().get_total_index();
+                crate::ui::set_navigation_info(&ui, current, total, true);
+            }
+        }
+        Err(e) => {
+            if let Some(ui) = ui_handle.upgrade() {
+                crate::ui::set_error_with_prefix(&ui, "Failed to start auto-reload", e.to_string());
+            }
+        }
+    }
+}
+
 /// Sets up the auto-reload handlers.
 fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
-    let navigation_service = NavigationService::new(app_state.navigation.clone());
-    let reload_service = Arc::new(AutoReloadService::new(navigation_service));
+    let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
+    let reload_service = Arc::new(AutoReloadService::new((*navigation_service).clone()));
 
     ui.global::<crate::Logic>().on_start_auto_reload({
         let ui_handle = ui.as_weak();
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
         let watcher_ref = app_state.auto_reload_watcher.clone();
+        let navigation_service = navigation_service.clone();
         let reload_service = reload_service.clone();
 
         move || {
-            // First, navigate to the last image immediately
-            let result = reload_service.navigate_to_last();
-
-            match result {
-                Ok(path) => {
-                    load_and_display_image(
-                        ui_handle.clone(),
-                        path,
-                        "Failed to load last image".to_string(),
-                        state.clone(),
-                        cache.clone(),
-                    );
-                }
-                Err(e) => {
-                    if let Some(ui) = ui_handle.upgrade() {
-                        crate::ui::set_error_with_prefix(
-                            &ui,
-                            "Failed to navigate to last image",
-                            e.to_string(),
-                        );
-                    }
-                    return;
-                }
-            }
-
-            // Start watching for changes
-            let ui_weak = ui_handle.clone();
-            let state_clone = state.clone();
-            let cache_clone = cache.clone();
-
-            let watcher_result = reload_service.start_watching(state_clone.clone(), move |path| {
-                load_and_display_image(
-                    ui_weak.clone(),
-                    path,
-                    "Auto-reload failed".to_string(),
-                    state_clone.clone(),
-                    cache_clone.clone(),
-                );
-            });
-
-            match watcher_result {
-                Ok(watcher) => {
-                    if let Ok(mut watcher_lock) = watcher_ref.lock() {
-                        *watcher_lock = Some(watcher);
-                    }
-
-                    if let Some(ui) = ui_handle.upgrade() {
-                        let current = ui.global::<crate::ViewerState>().get_current_index();
-                        let total = ui.global::<crate::ViewerState>().get_total_index();
-                        crate::ui::set_navigation_info(&ui, current, total, true);
-                    }
-                }
-                Err(e) => {
-                    if let Some(ui) = ui_handle.upgrade() {
-                        crate::ui::set_error_with_prefix(
-                            &ui,
-                            "Failed to start auto-reload",
-                            e.to_string(),
-                        );
-                    }
-                }
-            }
+            start_auto_reload_internal(
+                &ui_handle,
+                &state,
+                &cache,
+                &watcher_ref,
+                &navigation_service,
+                &reload_service,
+            );
         }
     });
 
