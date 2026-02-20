@@ -1,17 +1,17 @@
-//! Display profile service for color management.
+//! ディスプレイICCプロファイル取得サービス。
 
 use std::fmt;
 
-/// Errors that can occur while reading display ICC profile.
+/// ディスプレイICCプロファイル取得時のエラー。
 #[derive(Debug)]
 pub enum DisplayProfileError {
-    /// Platform API returned no screens.
+    /// 画面一覧が取得できなかった。
     NoDisplay,
-    /// Platform API returned no color space.
+    /// カラースペースが取得できなかった。
     NoColorSpace,
-    /// Platform API returned no ICC data.
+    /// ICCデータが取得できなかった。
     NoIccData,
-    /// Platform-specific error occurred.
+    /// プラットフォーム依存エラー。
     #[cfg(not(target_os = "macos"))]
     PlatformError(String),
 }
@@ -30,16 +30,16 @@ impl fmt::Display for DisplayProfileError {
 
 impl std::error::Error for DisplayProfileError {}
 
-/// Service for loading display ICC profile.
+/// ディスプレイICCプロファイル読み込みサービス。
 pub struct DisplayProfileService;
 
 impl DisplayProfileService {
-    /// Creates a new display profile service.
+    /// 新しいサービスを作成する。
     pub fn new() -> Self {
         Self
     }
 
-    /// Loads the ICC profile bytes for the first detected display.
+    /// 最初に検出されたディスプレイのICCプロファイルを読み込む。
     pub fn load_first_display_icc_profile(&self) -> Result<Vec<u8>, DisplayProfileError> {
         #[cfg(target_os = "macos")]
         {
