@@ -153,6 +153,7 @@ pub fn load_and_display_image(
     error_prefix: String,
     state: Arc<Mutex<NavigationState>>,
     cache: Arc<Mutex<ImageCache>>,
+    display_tracker: crate::ui::DisplayTracker,
 ) {
     // Check cache first
     let cached = cache.lock().ok().and_then(|mut c| c.get(&path));
@@ -169,7 +170,7 @@ pub fn load_and_display_image(
             update_ui_state(&ui, image, &cached_image, &state);
 
             // Trigger preload even on cache hit
-            preload_adjacent_images(state, cache);
+            preload_adjacent_images(state, cache, display_tracker);
         }
         return;
     }
@@ -177,8 +178,10 @@ pub fn load_and_display_image(
     // Cache miss - load from disk
     let cache_clone = cache.clone();
     let state_clone = state.clone();
+    let display_tracker_clone = display_tracker.clone();
     rayon::spawn(move || {
-        let result = image_loader::load_image_with_metadata(&path)
+        let screen_id = display_tracker_clone.current_display_id();
+        let result = image_loader::load_image_with_metadata(&path, screen_id)
             .map_err(|e| format!("Failed to load image: {}", e));
 
         let _ = slint::invoke_from_event_loop(move || {
@@ -198,7 +201,7 @@ pub fn load_and_display_image(
                         }
 
                         // Trigger preload after successful display
-                        preload_adjacent_images(state_clone, cache_clone);
+                        preload_adjacent_images(state_clone, cache_clone, display_tracker_clone);
                     }
                     Err(error) => update_ui_with_error(&ui, &error_prefix, error),
                 }
@@ -208,7 +211,11 @@ pub fn load_and_display_image(
 }
 
 /// Preloads adjacent images (next and previous) in the background.
-fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<ImageCache>>) {
+fn preload_adjacent_images(
+    state: Arc<Mutex<NavigationState>>,
+    cache: Arc<Mutex<ImageCache>>,
+    display_tracker: crate::ui::DisplayTracker,
+) {
     let (next_path, prev_path) = {
         if let Ok(nav_state) = state.lock() {
             (nav_state.peek_next_image(), nav_state.peek_prev_image())
@@ -227,9 +234,11 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
 
         if should_load {
             let cache_clone = cache.clone();
+            let display_tracker_clone = display_tracker.clone();
             rayon::spawn(move || {
+                let screen_id = display_tracker_clone.current_display_id();
                 // Silently ignore errors during preload
-                if let Ok(loaded) = image_loader::load_image_with_metadata(&path) {
+                if let Ok(loaded) = image_loader::load_image_with_metadata(&path, screen_id) {
                     if let Ok(mut cache) = cache_clone.lock() {
                         cache.put(path, loaded);
                     }
@@ -248,9 +257,11 @@ fn preload_adjacent_images(state: Arc<Mutex<NavigationState>>, cache: Arc<Mutex<
 
         if should_load {
             let cache_clone = cache.clone();
+            let display_tracker_clone = display_tracker.clone();
             rayon::spawn(move || {
+                let screen_id = display_tracker_clone.current_display_id();
                 // Silently ignore errors during preload
-                if let Ok(loaded) = image_loader::load_image_with_metadata(&path) {
+                if let Ok(loaded) = image_loader::load_image_with_metadata(&path, screen_id) {
                     if let Ok(mut cache) = cache_clone.lock() {
                         cache.put(path, loaded);
                     }

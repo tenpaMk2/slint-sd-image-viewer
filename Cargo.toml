@@ -21,11 +21,12 @@ rayon = "1.10"
 regex = "1"
 rfd = "0.17.2"
 serde = { version = "1", features = ["derive"] }
-slint = { version = "1.14.1", features = ["image-default-formats"] }
+slint = { version = "1.14.1", features = ["image-default-formats", "backend-winit"] }
 xmp_toolkit = "1.12"
 
-# macOS clipboard functionality
+# macOS clipboard functionality and display tracking
 [target.'cfg(target_os = "macos")'.dependencies]
+i-slint-backend-winit = "1.14.1"
 lcms2 = "6"
 objc2 = "0.6"
 objc2-foundation = "0.3"

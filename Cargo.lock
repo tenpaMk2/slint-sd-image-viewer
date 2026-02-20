@@ -4529,6 +4529,7 @@ dependencies = [
  "async-std",
  "chrono",
  "env_logger",
+ "i-slint-backend-winit",
  "image",
  "lcms2",
  "log",

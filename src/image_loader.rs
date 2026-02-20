@@ -25,14 +25,19 @@ pub struct LoadedImageData {
 /// Uses image crate for decoding all formats.
 /// - PNG: Single file I/O with metadata extracted from the same bytes
 /// - Other formats: Image data from memory, metadata from separate file I/O
-pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
+///
+/// # Arguments
+///
+/// * `path` - 画像ファイルパス
+/// * `screen_id` - 対象ディスプレイのスクリーンID（色管理用）
+pub fn load_image_with_metadata(path: &Path, screen_id: Option<u32>) -> Result<LoadedImageData> {
     let file_bytes = read_file_bytes(path)?;
     let reader = create_image_reader(&file_bytes, path)?;
     let format = detect_format(&reader, path)?;
 
     let (img, image_icc_profile) = decode_image_and_icc(reader, path)?;
     let (mut data, width, height) = convert_to_rgb8(img);
-    apply_color_management(path, &mut data, image_icc_profile.as_deref());
+    apply_color_management(path, &mut data, image_icc_profile.as_deref(), screen_id);
 
     let (rating, sd_parameters) = extract_metadata(path, &file_bytes, format)?;
     let (file_name, file_size_formatted, created_date, modified_date) =
@@ -114,8 +119,14 @@ fn convert_to_rgb8(img: image::DynamicImage) -> (Vec<u8>, u32, u32) {
 }
 
 /// 色管理サービスを適用する。
-fn apply_color_management(path: &Path, rgb_data: &mut [u8], image_icc_profile: Option<&[u8]>) {
-    if let Err(err) = default_color_management_service().apply_to_rgb8(rgb_data, image_icc_profile)
+fn apply_color_management(
+    path: &Path,
+    rgb_data: &mut [u8],
+    image_icc_profile: Option<&[u8]>,
+    screen_id: Option<u32>,
+) {
+    if let Err(err) =
+        default_color_management_service().apply_to_rgb8(rgb_data, image_icc_profile, screen_id)
     {
         error!(
             "Color management failed for {:?}, fallback to uncorrected pixels: {}",

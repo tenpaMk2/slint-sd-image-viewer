@@ -45,10 +45,17 @@ impl std::error::Error for ColorManagementError {}
 /// RGB8画像データに色管理を適用するサービス。
 pub trait ColorManagementService: Send + Sync {
     /// 画像ICCとディスプレイICCを使って色変換を適用する。
+    ///
+    /// # Arguments
+    ///
+    /// * `rgb_data` - 変換対象のRGB8データ（in-place変換）
+    /// * `image_icc_profile` - 画像に埋め込まれたICCプロファイル（あれば）
+    /// * `screen_id` - 対象ディスプレイのスクリーンID（`None`の場合は先頭ディスプレイ）
     fn apply_to_rgb8(
         &self,
         rgb_data: &mut [u8],
         image_icc_profile: Option<&[u8]>,
+        screen_id: Option<u32>,
     ) -> Result<(), ColorManagementError>;
 }
 
@@ -62,6 +69,7 @@ impl ColorManagementService for NoopColorManagementService {
         &self,
         _rgb_data: &mut [u8],
         _image_icc_profile: Option<&[u8]>,
+        _screen_id: Option<u32>,
     ) -> Result<(), ColorManagementError> {
         Ok(())
     }
@@ -94,10 +102,11 @@ impl ColorManagementService for MacOsColorManagementService {
         &self,
         rgb_data: &mut [u8],
         image_icc_profile: Option<&[u8]>,
+        screen_id: Option<u32>,
     ) -> Result<(), ColorManagementError> {
         let display_icc_profile = self
             .display_profile_service
-            .load_first_display_icc_profile()
+            .load_display_icc_profile(screen_id)
             .map_err(|e| ColorManagementError::DisplayProfileLoad(e.to_string()))?;
 
         let src_profile = match image_icc_profile {

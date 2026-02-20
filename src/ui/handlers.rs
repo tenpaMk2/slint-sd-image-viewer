@@ -47,7 +47,11 @@ fn create_rating_handler(
 }
 
 /// Sets up the file selection handler.
-fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
+fn setup_file_selection_handler(
+    ui: &crate::AppWindow,
+    app_state: &AppState,
+    display_tracker: &crate::ui::DisplayTracker,
+) {
     let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
 
     ui.global::<crate::Logic>().on_select_image({
@@ -55,11 +59,13 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
         let state = app_state.navigation.clone();
         let cache = app_state.image_cache.clone();
         let nav_service = navigation_service.clone();
+        let display_tracker = display_tracker.clone();
         move || {
             let ui_handle = ui_handle.clone();
             let state = state.clone();
             let cache = cache.clone();
             let nav_service = nav_service.clone();
+            let display_tracker = display_tracker.clone();
             let _ = slint::spawn_local(async move {
                 let Some(file_handle) = AsyncFileDialog::new().pick_file().await else {
                     if let Some(ui) = ui_handle.upgrade() {
@@ -78,6 +84,7 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
                     "Failed to load image".to_string(),
                     state.clone(),
                     cache.clone(),
+                    display_tracker.clone(),
                 );
 
                 // Update directory in background
@@ -103,7 +110,11 @@ fn setup_file_selection_handler(ui: &crate::AppWindow, app_state: &AppState) {
 }
 
 /// Sets up the navigation handlers (next and previous image).
-fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
+fn setup_navigation_handlers(
+    ui: &crate::AppWindow,
+    app_state: &AppState,
+    display_tracker: &crate::ui::DisplayTracker,
+) {
     let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
 
     ui.global::<crate::Logic>().on_next_image({
@@ -112,6 +123,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let cache = app_state.image_cache.clone();
         let watcher_ref = app_state.auto_reload_watcher.clone();
         let nav_service = navigation_service.clone();
+        let display_tracker = display_tracker.clone();
         move || {
             // Stop auto-reload on manual navigation
             stop_auto_reload_internal(&ui_handle, &watcher_ref);
@@ -126,6 +138,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                         "Failed to load next image".to_string(),
                         state.clone(),
                         cache.clone(),
+                        display_tracker.clone(),
                     );
                 }
                 Err(e) => {
@@ -143,6 +156,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let cache = app_state.image_cache.clone();
         let watcher_ref = app_state.auto_reload_watcher.clone();
         let nav_service = navigation_service.clone();
+        let display_tracker = display_tracker.clone();
         move || {
             // Stop auto-reload on manual navigation
             stop_auto_reload_internal(&ui_handle, &watcher_ref);
@@ -157,6 +171,7 @@ fn setup_navigation_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                         "Failed to load previous image".to_string(),
                         state.clone(),
                         cache.clone(),
+                        display_tracker.clone(),
                     );
                 }
                 Err(e) => {
@@ -193,6 +208,7 @@ fn start_auto_reload_internal(
     watcher_ref: &Arc<Mutex<Option<crate::state::AutoReloadDebouncer>>>,
     navigation_service: &Arc<NavigationService>,
     reload_service: &Arc<AutoReloadService>,
+    display_tracker: &crate::ui::DisplayTracker,
 ) {
     // First, rescan directory to get the latest file list
     if let Err(e) = navigation_service.rescan_directory() {
@@ -213,6 +229,7 @@ fn start_auto_reload_internal(
                 "Failed to load last image".to_string(),
                 state.clone(),
                 cache.clone(),
+                display_tracker.clone(),
             );
         }
         Err(e) => {
@@ -231,6 +248,7 @@ fn start_auto_reload_internal(
     let ui_weak = ui_handle.clone();
     let state_clone = state.clone();
     let cache_clone = cache.clone();
+    let display_tracker_clone = display_tracker.clone();
 
     let watcher_result = reload_service.start_watching(state_clone.clone(), move |path| {
         load_and_display_image(
@@ -239,6 +257,7 @@ fn start_auto_reload_internal(
             "Auto-reload failed".to_string(),
             state_clone.clone(),
             cache_clone.clone(),
+            display_tracker_clone.clone(),
         );
     });
 
@@ -263,7 +282,11 @@ fn start_auto_reload_internal(
 }
 
 /// Sets up the auto-reload handlers.
-fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
+fn setup_auto_reload_handlers(
+    ui: &crate::AppWindow,
+    app_state: &AppState,
+    display_tracker: &crate::ui::DisplayTracker,
+) {
     let navigation_service = Arc::new(NavigationService::new(app_state.navigation.clone()));
     let reload_service = Arc::new(AutoReloadService::new((*navigation_service).clone()));
 
@@ -274,6 +297,7 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
         let watcher_ref = app_state.auto_reload_watcher.clone();
         let navigation_service = navigation_service.clone();
         let reload_service = reload_service.clone();
+        let display_tracker = display_tracker.clone();
 
         move || {
             start_auto_reload_internal(
@@ -283,6 +307,7 @@ fn setup_auto_reload_handlers(ui: &crate::AppWindow, app_state: &AppState) {
                 &watcher_ref,
                 &navigation_service,
                 &reload_service,
+                &display_tracker,
             );
         }
     });
@@ -363,10 +388,14 @@ fn setup_clipboard_handler(ui: &crate::AppWindow, app_state: &AppState) {
 ///
 /// Takes the UI handle and shared application state, then registers
 /// callbacks for image selection, navigation, and other user actions.
-pub fn setup_handlers(ui: &crate::AppWindow, app_state: AppState) {
-    setup_file_selection_handler(ui, &app_state);
-    setup_navigation_handlers(ui, &app_state);
-    setup_auto_reload_handlers(ui, &app_state);
+pub fn setup_handlers(
+    ui: &crate::AppWindow,
+    app_state: AppState,
+    display_tracker: crate::ui::DisplayTracker,
+) {
+    setup_file_selection_handler(ui, &app_state, &display_tracker);
+    setup_navigation_handlers(ui, &app_state, &display_tracker);
+    setup_auto_reload_handlers(ui, &app_state, &display_tracker);
     setup_rating_handlers(ui, &app_state);
     setup_clipboard_handler(ui, &app_state);
 }
