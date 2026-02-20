@@ -1,10 +1,17 @@
 use crate::error::Result;
 use crate::metadata::{self, SdParameters};
+#[cfg(target_os = "macos")]
+use image::ImageDecoder;
 use image::ImageFormat;
 use log::error;
 use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
 use std::io::Cursor;
 use std::path::Path;
+
+#[cfg(target_os = "macos")]
+use crate::services::DisplayProfileService;
+#[cfg(target_os = "macos")]
+use lcms2::{Flags, Intent, PixelFormat, Profile, Transform};
 
 /// Loaded image data with metadata
 #[derive(Clone)]
@@ -45,6 +52,27 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
     })?;
 
     // Decode image using image crate
+    #[cfg(target_os = "macos")]
+    let (img, image_icc_profile) = {
+        let mut decoder = reader.into_decoder().map_err(|e| {
+            error!("Failed to create decoder for {:?}: {}", path, e);
+            e
+        })?;
+
+        let image_icc_profile = decoder.icc_profile().map_err(|e| {
+            error!("Failed to read ICC profile for {:?}: {}", path, e);
+            e
+        })?;
+
+        let img = image::DynamicImage::from_decoder(decoder).map_err(|e| {
+            error!("Failed to decode image {:?}: {}", path, e);
+            e
+        })?;
+
+        (img, image_icc_profile)
+    };
+
+    #[cfg(not(target_os = "macos"))]
     let img = reader.decode().map_err(|e| {
         error!("Failed to decode image {:?}: {}", path, e);
         e
@@ -53,7 +81,17 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
     let rgb8 = img.to_rgb8();
     let width = rgb8.width();
     let height = rgb8.height();
-    let data = rgb8.into_raw();
+    let mut data = rgb8.into_raw();
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(err) = apply_display_color_management(&mut data, image_icc_profile.as_deref()) {
+            error!(
+                "Color management failed for {:?}, fallback to uncorrected pixels: {}",
+                path, err
+            );
+        }
+    }
 
     // Extract metadata based on format
     let (rating, sd_parameters) = match format {
@@ -142,6 +180,40 @@ pub fn load_image_with_metadata(path: &Path) -> Result<LoadedImageData> {
         created_date,
         modified_date,
     })
+}
+
+#[cfg(target_os = "macos")]
+fn apply_display_color_management(
+    rgb_data: &mut [u8],
+    image_icc_profile: Option<&[u8]>,
+) -> std::result::Result<(), String> {
+    let display_icc_profile = DisplayProfileService::new()
+        .load_first_display_icc_profile()
+        .map_err(|e| format!("Failed to load display ICC profile: {}", e))?;
+
+    let src_profile = match image_icc_profile {
+        Some(icc) if !icc.is_empty() => Profile::new_icc(icc)
+            .map_err(|e| format!("Failed to parse image ICC profile: {}", e))?,
+        _ => Profile::new_srgb(),
+    };
+
+    let dst_profile = Profile::new_icc(&display_icc_profile)
+        .map_err(|e| format!("Failed to parse display ICC profile: {}", e))?;
+
+    let transform = Transform::new_flags(
+        &src_profile,
+        PixelFormat::RGB_8,
+        &dst_profile,
+        PixelFormat::RGB_8,
+        Intent::RelativeColorimetric,
+        Flags::BLACKPOINT_COMPENSATION,
+    )
+    .map_err(|e| format!("Failed to create ICC transform: {}", e))?;
+
+    let input = rgb_data.to_vec();
+    transform.transform_pixels(&input, rgb_data);
+
+    Ok(())
 }
 
 /// Format file size with thousand separators

@@ -26,6 +26,7 @@ xmp_toolkit = "1.12"
 
 # macOS clipboard functionality
 [target.'cfg(target_os = "macos")'.dependencies]
+lcms2 = "6"
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = "0.3"
