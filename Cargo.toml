@@ -2,6 +2,7 @@
 name = "slint-rust-template"
 version = "0.1.0"
 edition = "2021"
+description = "Image viewer for Stable Diffusion metadata"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -51,7 +52,8 @@ arboard = "3"
 slint-build = "1.14.1"
 
 [package.metadata.bundle]
-name = "My Slint App"
-identifier = "com.example.my-slint-app"
+name = "Slint SD Image Viewer"
+identifier = "com.tenpamk2.slint-sd-image-viewer"
 # icon = ["icons/icon.png"] # アイコンがあれば指定（なければこの行を消す）
-category = "DeveloperTool"
+category = "public.app-category.photography"
+osx_info_plist_exts = ["bundle/macos-info.plist"]

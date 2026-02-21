@@ -26,7 +26,7 @@ impl PathExt for Path {
 }
 
 /// Checks if a file is a supported image based on its extension.
-fn is_supported_image(path: &Path) -> bool {
+pub fn is_supported_image(path: &Path) -> bool {
     path.is_file()
         && path
             .extension()

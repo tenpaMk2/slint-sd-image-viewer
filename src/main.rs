@@ -10,6 +10,7 @@ mod image_cache;
 mod image_loader;
 mod metadata;
 mod services;
+mod startup;
 mod state;
 mod ui;
 
@@ -53,41 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create display tracker for color management
     let display_tracker = ui::DisplayTracker::new();
 
-    // Setup window event hook for display tracking (macOS only)
-    #[cfg(target_os = "macos")]
-    {
-        use i_slint_backend_winit::WinitWindowAccessor;
-        use services::DisplayProfileService;
-
-        let display_tracker_clone = display_tracker.clone();
-        let window = app.window();
-
-        // Initialize with current window position
-        let initial_pos = window.position();
-        let screen_id =
-            DisplayProfileService::new().screen_id_from_position(initial_pos.x, initial_pos.y);
-        log::info!("Initial display screen ID: {:?}", screen_id);
-        display_tracker.update_display_id(screen_id);
-
-        // Register window event handler for position changes
-        window.on_winit_window_event(move |_window, event| {
-            use i_slint_backend_winit::winit::event::WindowEvent;
-            use i_slint_backend_winit::EventResult;
-
-            if let WindowEvent::Moved(pos) = event {
-                let prev_id = display_tracker_clone.current_display_id();
-                let screen_id = DisplayProfileService::new().screen_id_from_position(pos.x, pos.y);
-
-                if screen_id != prev_id {
-                    log::info!("Display changed: {:?} -> {:?}", prev_id, screen_id);
-                }
-
-                display_tracker_clone.update_display_id(screen_id);
-            }
-
-            EventResult::Propagate
-        });
-    }
+    startup::configure_startup_opening(&app, &app_state, &display_tracker);
 
     // Setup all UI event handlers
     ui::setup_handlers(&app, app_state, display_tracker);
