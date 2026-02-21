@@ -6,10 +6,13 @@ use std::fmt;
 #[derive(Debug)]
 pub enum DisplayProfileError {
     /// 画面一覧が取得できなかった。
+    #[cfg(target_os = "macos")]
     NoDisplay,
     /// カラースペースが取得できなかった。
+    #[cfg(target_os = "macos")]
     NoColorSpace,
     /// ICCデータが取得できなかった。
+    #[cfg(target_os = "macos")]
     NoIccData,
     /// プラットフォーム依存エラー。
     #[cfg(not(target_os = "macos"))]
@@ -19,8 +22,11 @@ pub enum DisplayProfileError {
 impl fmt::Display for DisplayProfileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(target_os = "macos")]
             Self::NoDisplay => write!(f, "No display found"),
+            #[cfg(target_os = "macos")]
             Self::NoColorSpace => write!(f, "No display color space available"),
+            #[cfg(target_os = "macos")]
             Self::NoIccData => write!(f, "No display ICC profile available"),
             #[cfg(not(target_os = "macos"))]
             Self::PlatformError(msg) => write!(f, "{}", msg),
@@ -35,6 +41,7 @@ pub struct DisplayProfileService;
 
 impl DisplayProfileService {
     /// 新しいサービスを作成する。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn new() -> Self {
         Self
     }
@@ -49,6 +56,7 @@ impl DisplayProfileService {
     /// # Returns
     ///
     /// スクリーンIDが見つかった場合は `Some(id)`、見つからない場合またはプラットフォーム非対応の場合は `None`。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn screen_id_from_position(&self, x: i32, y: i32) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {

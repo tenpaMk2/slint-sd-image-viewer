@@ -111,8 +111,9 @@ fn setup_macos_window_hooks(
 fn setup_macos_window_hooks(
     _app: &crate::AppWindow,
     _app_state: &AppState,
-    _display_tracker: &DisplayTracker,
+    display_tracker: &DisplayTracker,
 ) {
+    display_tracker.update_display_id(None);
 }
 
 pub fn configure_startup_opening(

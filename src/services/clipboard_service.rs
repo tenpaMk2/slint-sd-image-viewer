@@ -13,6 +13,7 @@ pub enum ClipboardError {
     /// No files were provided to copy.
     EmptyPaths,
     /// No valid file paths could be processed.
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     InvalidPaths,
     /// One or more files do not exist.
     FileNotFound(PathBuf),
@@ -24,6 +25,7 @@ impl fmt::Display for ClipboardError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptyPaths => write!(f, "No files to copy"),
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
             Self::InvalidPaths => write!(f, "No valid file paths"),
             Self::FileNotFound(path) => write!(f, "File not found: {:?}", path),
             Self::PlatformError(msg) => write!(f, "{}", msg),
@@ -115,6 +117,7 @@ impl ClipboardService {
     }
 
     /// Converts paths to string slices, filtering out invalid UTF-8 paths.
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     fn paths_to_strings(paths: &[PathBuf]) -> Result<Vec<String>, ClipboardError> {
         let strings: Vec<String> = paths
             .iter()

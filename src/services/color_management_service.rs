@@ -1,10 +1,11 @@
 //! 色管理サービス。
 
-use std::cell::RefCell;
 use std::fmt;
 
 #[cfg(target_os = "macos")]
 use lcms2::{Flags, Intent, PixelFormat, Profile, Transform};
+#[cfg(target_os = "macos")]
+use std::cell::RefCell;
 use once_cell::sync::Lazy;
 
 #[cfg(target_os = "macos")]
@@ -12,6 +13,7 @@ use crate::services::DisplayProfileService;
 
 /// 色管理処理で発生するエラー。
 #[derive(Debug)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub enum ColorManagementError {
     /// ディスプレイICCプロファイルの取得失敗。
     DisplayProfileLoad(String),
