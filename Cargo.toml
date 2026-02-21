@@ -6,6 +6,9 @@ description = "Image viewer for Stable Diffusion metadata"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata.release]
+publish = false
+
 [dependencies]
 async-compat = "0.2"
 async-std = "1.13"
