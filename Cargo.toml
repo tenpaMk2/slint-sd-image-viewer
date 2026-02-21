@@ -57,9 +57,6 @@ arboard = "3"
 image = { version = "0.25", default-features = false, features = ["png"] }
 slint-build = "1"
 
-[target.'cfg(target_os = "macos")'.build-dependencies]
-icns = "0.4"
-
 [target.'cfg(target_os = "windows")'.build-dependencies]
 ico = "0.4"
 winresource = "0.1"
@@ -67,7 +64,7 @@ winresource = "0.1"
 [package.metadata.packager]
 product-name = "Slint SD Image Viewer"
 identifier = "com.tenpamk2.slint-sd-image-viewer"
-icons = ["target/generated/icon.*"]
+icons = ["bundle/icon.png"]
 category = "Photography"
 before-packaging-command = "cargo build --release"
 out-dir = "target/release/packager"
