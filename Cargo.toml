@@ -54,6 +54,6 @@ slint-build = "1.14.1"
 [package.metadata.bundle]
 name = "Slint SD Image Viewer"
 identifier = "com.tenpamk2.slint-sd-image-viewer"
-# icon = ["icons/icon.png"] # アイコンがあれば指定（なければこの行を消す）
+icon = ["target/generated/icon.icns"]
 category = "public.app-category.photography"
 osx_info_plist_exts = ["bundle/macos-info.plist"]
