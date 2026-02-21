@@ -24,14 +24,17 @@ rfd = "0.17.2"
 serde = { version = "1", features = ["derive"] }
 slint = { version = "1", features = ["image-default-formats", "backend-winit"] }
 xmp_toolkit = "1.12"
-
-# macOS clipboard functionality and display tracking
-[target.'cfg(target_os = "macos")'.dependencies]
 i-slint-backend-winit = "1"
-lcms2 = "6"
+
+# macOS display profile functionality
+[target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = "0.3"
+
+# macOS and Windows color management
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+lcms2 = "6"
 
 # Windows clipboard functionality
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -41,7 +44,9 @@ windows = { version = "0.62.2", features = [
     "Win32_UI_Shell", 
     "Win32_Foundation",
     "Win32_System_DataExchange",
-    "Win32_System_Memory"
+    "Win32_System_Memory",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_ColorSystem"
 ] }
 
 # Linux clipboard functionality

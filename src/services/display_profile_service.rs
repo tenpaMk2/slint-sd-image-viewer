@@ -2,6 +2,13 @@
 
 use std::fmt;
 
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::hash::{Hash, Hasher};
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStringExt;
+
 /// ディスプレイICCプロファイル取得時のエラー。
 #[derive(Debug)]
 pub enum DisplayProfileError {
@@ -41,7 +48,7 @@ pub struct DisplayProfileService;
 
 impl DisplayProfileService {
     /// 新しいサービスを作成する。
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
     pub fn new() -> Self {
         Self
     }
@@ -56,14 +63,19 @@ impl DisplayProfileService {
     /// # Returns
     ///
     /// スクリーンIDが見つかった場合は `Some(id)`、見つからない場合またはプラットフォーム非対応の場合は `None`。
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
     pub fn screen_id_from_position(&self, x: i32, y: i32) -> Option<u32> {
         #[cfg(target_os = "macos")]
         {
             self.screen_id_from_position_macos(x, y)
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
+        {
+            self.screen_id_from_position_windows(x, y)
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
             let _ = (x, y);
             None
@@ -88,11 +100,16 @@ impl DisplayProfileService {
             self.load_display_icc_profile_macos(screen_id)
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
+        {
+            self.load_display_icc_profile_windows(screen_id)
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
             let _ = screen_id;
             Err(DisplayProfileError::PlatformError(
-                "Display ICC profile is supported only on macOS".to_string(),
+                "Display ICC profile is not supported on this platform".to_string(),
             ))
         }
     }
@@ -238,5 +255,172 @@ impl DisplayProfileService {
 
             Ok(icc_data.to_vec())
         })
+    }
+
+    #[cfg(target_os = "windows")]
+    fn screen_id_from_position_windows(&self, x: i32, y: i32) -> Option<u32> {
+        use windows::Win32::Foundation::POINT;
+        use windows::Win32::Graphics::Gdi::{
+            GetMonitorInfoW, MonitorFromPoint, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
+        };
+
+        let monitor = unsafe { MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONEAREST) };
+        if monitor.0.is_null() {
+            return None;
+        }
+
+        let mut monitor_info = MONITORINFOEXW::default();
+        monitor_info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+
+        let success = unsafe {
+            GetMonitorInfoW(
+                monitor,
+                (&mut monitor_info as *mut MONITORINFOEXW).cast(),
+            )
+        }
+        .as_bool();
+
+        if !success {
+            return None;
+        }
+
+        Some(Self::monitor_id_from_device_name(&monitor_info.szDevice))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn load_display_icc_profile_windows(
+        &self,
+        screen_id: Option<u32>,
+    ) -> Result<Vec<u8>, DisplayProfileError> {
+        use windows::core::{w, BOOL, PCWSTR, PWSTR};
+        use windows::Win32::Foundation::{LPARAM, RECT};
+        use windows::Win32::Graphics::Gdi::{
+            CreateDCW, DeleteDC, EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR,
+            MONITORINFOEXW,
+        };
+        use windows::Win32::UI::ColorSystem::GetICMProfileW;
+
+        unsafe extern "system" fn enum_monitor_proc(
+            monitor: HMONITOR,
+            _hdc: HDC,
+            _rect: *mut RECT,
+            lparam: LPARAM,
+        ) -> BOOL {
+            let monitors = &mut *(lparam.0 as *mut Vec<(u32, Vec<u16>)>);
+
+            let mut monitor_info = MONITORINFOEXW::default();
+            monitor_info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+
+            if GetMonitorInfoW(
+                monitor,
+                (&mut monitor_info as *mut MONITORINFOEXW).cast(),
+            )
+            .as_bool()
+            {
+                let device_name = monitor_info.szDevice.to_vec();
+                let id = DisplayProfileService::monitor_id_from_device_name(&monitor_info.szDevice);
+                monitors.push((id, device_name));
+            }
+
+            true.into()
+        }
+
+        let mut monitors: Vec<(u32, Vec<u16>)> = Vec::new();
+
+        let enum_ok = unsafe {
+            EnumDisplayMonitors(
+                None,
+                None,
+                Some(enum_monitor_proc),
+                LPARAM((&mut monitors as *mut Vec<(u32, Vec<u16>)>) as isize),
+            )
+        }
+        .as_bool();
+
+        if !enum_ok || monitors.is_empty() {
+            return Err(DisplayProfileError::PlatformError(
+                "No display found".to_string(),
+            ));
+        }
+
+        let target_device = if let Some(target_id) = screen_id {
+            monitors
+                .iter()
+                .find(|(id, _)| *id == target_id)
+                .map(|(_, name)| name.clone())
+                .unwrap_or_else(|| monitors[0].1.clone())
+        } else {
+            monitors[0].1.clone()
+        };
+
+        let hdc = unsafe {
+            CreateDCW(
+                w!("DISPLAY"),
+                PCWSTR(target_device.as_ptr()),
+                PCWSTR::null(),
+                None,
+            )
+        };
+
+        if hdc.0.is_null() {
+            return Err(DisplayProfileError::PlatformError(
+                "Failed to create display device context".to_string(),
+            ));
+        }
+
+        let mut profile_path_len: u32 = 0;
+        let _ = unsafe { GetICMProfileW(hdc, &mut profile_path_len, Some(PWSTR::null())) };
+
+        if profile_path_len == 0 {
+            unsafe {
+                let _ = DeleteDC(hdc);
+            }
+            return Err(DisplayProfileError::PlatformError(
+                "No display ICC profile available".to_string(),
+            ));
+        }
+
+        let mut profile_path_buf = vec![0u16; profile_path_len as usize];
+        let profile_ok = unsafe {
+            GetICMProfileW(
+                hdc,
+                &mut profile_path_len,
+                Some(PWSTR(profile_path_buf.as_mut_ptr())),
+            )
+        }
+        .as_bool();
+
+        unsafe {
+            let _ = DeleteDC(hdc);
+        }
+
+        if !profile_ok {
+            return Err(DisplayProfileError::PlatformError(
+                "Failed to query display ICC profile path".to_string(),
+            ));
+        }
+
+        let nul_pos = profile_path_buf
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(profile_path_buf.len());
+        let profile_path = OsString::from_wide(&profile_path_buf[..nul_pos]);
+
+        std::fs::read(profile_path).map_err(|e| {
+            DisplayProfileError::PlatformError(format!("Failed to read display ICC profile: {}", e))
+        })
+    }
+
+    #[cfg(target_os = "windows")]
+    fn monitor_id_from_device_name(device_name: &[u16]) -> u32 {
+        let nul_pos = device_name
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(device_name.len());
+        let name = String::from_utf16_lossy(&device_name[..nul_pos]);
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish() as u32
     }
 }

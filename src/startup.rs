@@ -54,8 +54,8 @@ fn startup_image_from_args() -> Option<PathBuf> {
         .find(|path| crate::file_utils::is_supported_image(path))
 }
 
-#[cfg(target_os = "macos")]
-fn setup_macos_window_hooks(
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn setup_platform_window_hooks(
     app: &crate::AppWindow,
     app_state: &AppState,
     display_tracker: &DisplayTracker,
@@ -107,8 +107,8 @@ fn setup_macos_window_hooks(
     });
 }
 
-#[cfg(not(target_os = "macos"))]
-fn setup_macos_window_hooks(
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn setup_platform_window_hooks(
     _app: &crate::AppWindow,
     _app_state: &AppState,
     display_tracker: &DisplayTracker,
@@ -121,7 +121,7 @@ pub fn configure_startup_opening(
     app_state: &AppState,
     display_tracker: &DisplayTracker,
 ) {
-    setup_macos_window_hooks(app, app_state, display_tracker);
+    setup_platform_window_hooks(app, app_state, display_tracker);
 
     if let Some(path) = startup_image_from_args() {
         open_image_path(

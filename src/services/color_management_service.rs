@@ -2,18 +2,18 @@
 
 use std::fmt;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use lcms2::{Flags, Intent, PixelFormat, Profile, Transform};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::cell::RefCell;
 use once_cell::sync::Lazy;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use crate::services::DisplayProfileService;
 
 /// 色管理処理で発生するエラー。
 #[derive(Debug)]
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
 pub enum ColorManagementError {
     /// ディスプレイICCプロファイルの取得失敗。
     DisplayProfileLoad(String),
@@ -62,10 +62,10 @@ pub trait ColorManagementService: Send + Sync {
 }
 
 /// 色管理を適用しないダミー実装。
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub struct NoopColorManagementService;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl ColorManagementService for NoopColorManagementService {
     fn apply_to_rgb8(
         &self,
@@ -77,19 +77,19 @@ impl ColorManagementService for NoopColorManagementService {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 thread_local! {
     static COLOR_TRANSFORM_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
-/// macOS向け色管理サービス。
-#[cfg(target_os = "macos")]
-pub struct MacOsColorManagementService {
+/// ICCベース色管理サービス。
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub struct IccColorManagementService {
     display_profile_service: DisplayProfileService,
 }
 
-#[cfg(target_os = "macos")]
-impl MacOsColorManagementService {
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl IccColorManagementService {
     /// 新しいサービスを作成する。
     pub fn new() -> Self {
         Self {
@@ -98,8 +98,8 @@ impl MacOsColorManagementService {
     }
 }
 
-#[cfg(target_os = "macos")]
-impl ColorManagementService for MacOsColorManagementService {
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl ColorManagementService for IccColorManagementService {
     fn apply_to_rgb8(
         &self,
         rgb_data: &mut [u8],
@@ -141,11 +141,11 @@ impl ColorManagementService for MacOsColorManagementService {
     }
 }
 
-#[cfg(target_os = "macos")]
-static DEFAULT_COLOR_MANAGEMENT_SERVICE: Lazy<MacOsColorManagementService> =
-    Lazy::new(MacOsColorManagementService::new);
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+static DEFAULT_COLOR_MANAGEMENT_SERVICE: Lazy<IccColorManagementService> =
+    Lazy::new(IccColorManagementService::new);
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 static DEFAULT_COLOR_MANAGEMENT_SERVICE: Lazy<NoopColorManagementService> =
     Lazy::new(|| NoopColorManagementService);
 

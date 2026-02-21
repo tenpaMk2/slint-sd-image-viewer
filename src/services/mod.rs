@@ -12,7 +12,7 @@ pub mod rating_service;
 pub use auto_reload_service::AutoReloadService;
 pub use clipboard_service::ClipboardService;
 pub use color_management_service::default_color_management_service;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use display_profile_service::DisplayProfileService;
 pub use navigation_service::NavigationService;
 pub use rating_service::RatingService;
