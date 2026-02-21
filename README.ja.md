@@ -32,12 +32,12 @@ Stable Diffusion 画像のメタデータ表示と、XMP レーティング管�
 ### 前提条件
 
 - [Rust](https://rustup.rs/)
-- （macOS ローカル配布をする場合）`cargo-bundle`
+- （デスクトップ配布をする場合）`cargo-packager`
 
-`cargo-bundle` 未導入の場合:
+`cargo-packager` 未導入の場合:
 
 ```bash
-cargo install cargo-bundle
+cargo install cargo-packager --locked
 ```
 
 ### はじめに
@@ -59,17 +59,18 @@ cargo run
 
 - `cargo run` - 開発実行
 - `cargo build --release` - リリースビルド
-- `cargo bundle --release` - macOS 向け `.app` バンドル作成（署名なし）
+- `cargo packager --release --formats app` - macOS 向け `.app` バンドル作成（署名なし）
+- `cargo packager --release --formats nsis` - Windows 向けインストーラー（`.exe`）作成
 
 ## macOS ローカル配布（Developer ID 署名なし）
 
 Apple Developer ID 署名なしでローカル配布したい場合は、次の手順を利用します。
 
 ```bash
-cargo bundle --release
+cargo packager --release --formats app
 ```
 
-- 出力先: `target/release/bundle/osx/Slint SD Image Viewer.app`
+- 出力先: `target/release/packager/**/Slint SD Image Viewer.app`
 - 生成されたアプリは未署名です
 
 ### macOS 初回起動

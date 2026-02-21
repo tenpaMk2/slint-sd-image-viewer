@@ -32,12 +32,12 @@ Focused on viewing Stable Diffusion metadata and managing XMP ratings.
 ### Prerequisites
 
 - [Rust](https://rustup.rs/)
-- (`cargo-bundle` for local macOS distribution)
+- (`cargo-packager` for desktop packaging)
 
-If `cargo-bundle` is not installed:
+If `cargo-packager` is not installed:
 
 ```bash
-cargo install cargo-bundle
+cargo install cargo-packager --locked
 ```
 
 ### Getting Started
@@ -59,17 +59,18 @@ cargo run
 
 - `cargo run` - Run in development
 - `cargo build --release` - Release build
-- `cargo bundle --release` - Build macOS `.app` bundle (unsigned)
+- `cargo packager --release --formats app` - Build macOS `.app` bundle (unsigned)
+- `cargo packager --release --formats nsis` - Build Windows installer (`.exe`)
 
 ## macOS Local Distribution (without Developer ID)
 
 Use this flow when you only need local distribution and do not want Apple Developer ID signing.
 
 ```bash
-cargo bundle --release
+cargo packager --release --formats app
 ```
 
-- Output app: `target/release/bundle/osx/Slint SD Image Viewer.app`
+- Output app: `target/release/packager/**/Slint SD Image Viewer.app`
 - The app is unsigned
 
 ### First Launch on macOS

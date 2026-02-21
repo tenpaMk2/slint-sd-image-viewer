@@ -35,25 +35,32 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
 
-      - name: Install cargo-bundle (macOS only)
-        if: runner.os == 'macOS'
-        run: cargo install cargo-bundle
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked
 
       - name: Build and package (macOS)
         if: runner.os == 'macOS'
         run: |
-          cargo bundle --release
+          cargo packager --release --formats app
           mkdir -p dist
-          cd target/release/bundle/osx
-          ditto -c -k --sequesterRsrc --keepParent "Slint SD Image Viewer.app" "$GITHUB_WORKSPACE/dist/${{ matrix.artifact_name }}"
+          APP_PATH=$(find target/release/packager -type d -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found under target/release/packager"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$GITHUB_WORKSPACE/dist/${{ matrix.artifact_name }}"
 
       - name: Build and package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          cargo build --release
+          cargo packager --release --formats nsis
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path "target/release/slint-rust-template.exe" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
+          $installer = Get-ChildItem -Path "target/release/packager" -Recurse -File -Include *.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $installer) {
+            throw "No Windows installer found under target/release/packager"
+          }
+          Compress-Archive -Path $installer.FullName -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
 
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v4
