@@ -77,15 +77,17 @@ cargo packager --release --formats app
 
 ### First Launch on macOS
 
-For unsigned apps, first launch may be blocked by Gatekeeper.
-Use Apple's official flow:
+Because this app is unsigned, follow this local workaround:
 
-1. Try to open the app once.
-2. Open **System Settings** > **Privacy & Security**.
-3. In **Security**, click **Open Anyway** for this app.
-4. Click **Open** and authenticate.
+1. Open the `.dmg` and move or copy **Slint SD Image Viewer.app** into `~/Downloads`.
+2. Run the following command in Terminal:
 
-Reference: https://support.apple.com/ja-jp/guide/mac-help/mh40616/mac
+```sh
+xattr -cr ~/Downloads/Slint\ SD\ Image\ Viewer.app/
+```
+
+This command has security implications. Use it only if you understand the risk.
+It removes the downloaded-from-Internet quarantine attribute, which bypasses Gatekeeper checks for this app.
 
 ## Supported Formats
 

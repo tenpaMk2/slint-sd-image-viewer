@@ -77,15 +77,18 @@ cargo packager --release --formats app
 
 ### macOS 初回起動
 
-本アプリはApple税を払ってないので未署名です！
-Gatekeeper により初回起動がブロックされるのでApple 公式手順に従って許可してください。
+作者がApple税を払っていないので、本アプリは未署名です。
+次の手順で利用できます。
 
-1. 一度アプリを開こうとする
-2. **システム設定** > **プライバシーとセキュリティ** を開く
-3. **セキュリティ** 欄で対象アプリに対して **このまま開く** を選ぶ
-4. **開く** を押して認証する
+1. `.dmg` を開いて、**Slint SD Image Viewer.app** を `~/Downloads` に移動またはコピーする
+2. **ターミナル**で次のコマンドを実行する
 
-参考: https://support.apple.com/ja-jp/guide/mac-help/mh40616/mac
+```sh
+xattr -cr ~/Downloads/Slint\ SD\ Image\ Viewer.app/
+```
+
+このコマンドにはセキュリティ上のリスクがあります。内容を理解した上で実行してください。
+（インターネットからダウンロードした属性を削除し、Gatekeeper のチェックを回避して起動できるようにします。）
 
 ## 画像形式対応
 
