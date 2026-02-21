@@ -4610,8 +4610,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "slint-rust-template"
-version = "0.1.0"
+name = "slint-sd-image-viewer"
+version = "0.1.1"
 dependencies = [
  "arboard",
  "async-compat",
