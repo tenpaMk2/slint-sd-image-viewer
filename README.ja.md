@@ -1,5 +1,7 @@
 # Slint SD Image Viewer
 
+![icon](./bundle/icon.png)
+
 _[English🌐](README.md) | [日本語🇯🇵](README.ja.md)_
 
 Slint + Rust で構築されたデスクトップ画像ビューアーアプリケーションです。
