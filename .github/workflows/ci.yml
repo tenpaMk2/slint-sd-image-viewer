@@ -1,0 +1,94 @@
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (example: v1.0.0). If empty, current ref name is used."
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            target_label: macos-aarch64
+            artifact_name: "Slint-SD-Image-Viewer-macos-aarch64.zip"
+          - platform: windows-latest
+            target_label: windows-x64
+            artifact_name: "Slint-SD-Image-Viewer-windows-x64.zip"
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install cargo-bundle (macOS only)
+        if: runner.os == 'macOS'
+        run: cargo install cargo-bundle
+
+      - name: Build and package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo bundle --release
+          mkdir -p dist
+          cd target/release/bundle/osx
+          ditto -c -k --sequesterRsrc --keepParent "Slint SD Image Viewer.app" "$GITHUB_WORKSPACE/dist/${{ matrix.artifact_name }}"
+
+      - name: Build and package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build --release
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "target/release/slint-rust-template.exe" -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target_label }}
+          path: dist/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Validate release tag
+        run: |
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "Release tag is empty. Use a v* tag push or set workflow_dispatch input 'tag'."
+            exit 1
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "Slint SD Image Viewer ${{ env.RELEASE_TAG }}"
+          body: "See assets below for this release."
+          draft: true
+          prerelease: false
+          files: dist/*.zip
