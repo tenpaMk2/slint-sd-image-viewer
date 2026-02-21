@@ -34,7 +34,7 @@ objc2-app-kit = "0.3"
 
 # macOS and Windows color management
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-lcms2 = "6"
+lcms2 = { version = "6", features = ["static"] }
 
 # Windows clipboard functionality
 [target.'cfg(target_os = "windows")'.dependencies]
