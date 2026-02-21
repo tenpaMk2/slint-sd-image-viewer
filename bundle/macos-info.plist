@@ -1,20 +1,26 @@
-<key>LSMinimumSystemVersion</key>
-<string>11.0</string>
-<key>CFBundleDocumentTypes</key>
-<array>
-	<dict>
-		<key>CFBundleTypeName</key>
-		<string>Image File</string>
-		<key>CFBundleTypeRole</key>
-		<string>Viewer</string>
-		<key>LSHandlerRank</key>
-		<string>Default</string>
-		<key>LSItemContentTypes</key>
-		<array>
-			<string>public.jpeg</string>
-			<string>public.png</string>
-			<string>org.webmproject.webp</string>
-			<string>public.image</string>
-		</array>
-	</dict>
-</array>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Image File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.jpeg</string>
+				<string>public.png</string>
+				<string>org.webmproject.webp</string>
+				<string>public.image</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
