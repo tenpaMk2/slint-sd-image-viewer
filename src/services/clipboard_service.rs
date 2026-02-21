@@ -46,7 +46,7 @@ use {
 use {
     std::os::windows::ffi::OsStrExt,
     windows::{
-        Win32::Foundation::{BOOL, HANDLE, HWND},
+        Win32::Foundation::{HANDLE, HWND},
         Win32::System::Com::{CoInitialize, CoUninitialize},
         Win32::System::DataExchange::{
             CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
@@ -193,7 +193,7 @@ impl ClipboardService {
 
         // COM initialization
         unsafe {
-            CoInitialize(None).map_err(|_| {
+            CoInitialize(None).ok().map_err(|_| {
                 ClipboardError::PlatformError("Failed to initialize COM".to_string())
             })?;
         }
@@ -201,7 +201,7 @@ impl ClipboardService {
         let result = (|| -> Result<(), ClipboardError> {
             unsafe {
                 // Open clipboard
-                OpenClipboard(HWND::default()).map_err(|_| {
+                OpenClipboard(Some(HWND::default())).map_err(|_| {
                     ClipboardError::PlatformError("Failed to open clipboard".to_string())
                 })?;
 
@@ -243,8 +243,8 @@ impl ClipboardService {
                 (*dropfiles).pFiles = dropfiles_size as u32;
                 (*dropfiles).pt.x = 0;
                 (*dropfiles).pt.y = 0;
-                (*dropfiles).fNC = BOOL(0);
-                (*dropfiles).fWide = BOOL(1); // Use Unicode
+                (*dropfiles).fNC = false.into();
+                (*dropfiles).fWide = true.into(); // Use Unicode
 
                 // Copy to global memory
                 let hmem = GlobalAlloc(GMEM_MOVEABLE, buffer.len()).map_err(|_| {
@@ -268,7 +268,7 @@ impl ClipboardService {
                 GlobalUnlock(hmem).ok();
 
                 // Set clipboard data
-                SetClipboardData(cf_hdrop, HANDLE(hmem.0)).map_err(|_| {
+                SetClipboardData(cf_hdrop, Some(HANDLE(hmem.0))).map_err(|_| {
                     ClipboardError::PlatformError("Failed to set clipboard data".to_string())
                 })?;
 
