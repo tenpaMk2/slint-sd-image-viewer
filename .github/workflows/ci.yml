@@ -19,10 +19,10 @@ jobs:
         include:
           - platform: macos-14
             target_label: macos-aarch64
-            artifact_name: "Slint-SD-Image-Viewer-macos-aarch64.zip"
+            artifact_name: "Slint-SD-Image-Viewer-macos-aarch64.dmg"
           - platform: windows-latest
             target_label: windows-x64
-            artifact_name: "Slint-SD-Image-Viewer-windows-x64.zip"
+            artifact_name: "Slint-SD-Image-Viewer-windows-x64.exe"
 
     runs-on: ${{ matrix.platform }}
 
@@ -41,14 +41,14 @@ jobs:
       - name: Build and package (macOS)
         if: runner.os == 'macOS'
         run: |
-          cargo packager --release --formats app
+          cargo packager --release --formats dmg
           mkdir -p dist
-          APP_PATH=$(find target/release/packager -type d -name "*.app" | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "No .app bundle found under target/release/packager"
+          DMG_PATH=$(find target/release/packager -type f -name "*.dmg" | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "No .dmg found under target/release/packager"
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$GITHUB_WORKSPACE/dist/${{ matrix.artifact_name }}"
+          cp "$DMG_PATH" "$GITHUB_WORKSPACE/dist/${{ matrix.artifact_name }}"
 
       - name: Build and package (Windows)
         if: runner.os == 'Windows'
@@ -60,13 +60,15 @@ jobs:
           if (-not $installer) {
             throw "No Windows installer found under target/release/packager"
           }
-          Compress-Archive -Path $installer.FullName -DestinationPath "dist/${{ matrix.artifact_name }}" -Force
+          Copy-Item -Path $installer.FullName -Destination "dist/${{ matrix.artifact_name }}" -Force
 
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target_label }}
-          path: dist/*.zip
+          path: |
+            dist/*.dmg
+            dist/*.exe
 
   release:
     needs: build
@@ -98,4 +100,6 @@ jobs:
           body: "See assets below for this release."
           draft: true
           prerelease: false
-          files: dist/*.zip
+          files: |
+            dist/*.dmg
+            dist/*.exe
