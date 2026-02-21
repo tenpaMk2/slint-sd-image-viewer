@@ -189,11 +189,12 @@ pub fn load_and_display_image(
                 match result {
                     Ok(loaded) => {
                         // Store in cache and get reference
-                        let cached_ref = if let Ok(mut cache) = cache_clone.lock() {
-                            cache.put(path.clone(), loaded);
-                            cache.get(&path)
-                        } else {
-                            None
+                        let cached_ref = match cache_clone.lock() {
+                            Ok(mut cache) => {
+                                cache.put(path.clone(), loaded);
+                                cache.get(&path)
+                            }
+                            _ => None,
                         };
 
                         if let Some(cached) = cached_ref {
@@ -217,10 +218,11 @@ fn preload_adjacent_images(
     display_tracker: crate::ui::DisplayTracker,
 ) {
     let (next_path, prev_path) = {
-        if let Ok(nav_state) = state.lock() {
-            (nav_state.peek_next_image(), nav_state.peek_prev_image())
-        } else {
-            return;
+        match state.lock() {
+            Ok(nav_state) => (nav_state.peek_next_image(), nav_state.peek_prev_image()),
+            _ => {
+                return;
+            }
         }
     };
 
